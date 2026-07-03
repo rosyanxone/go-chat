@@ -1,17 +1,19 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 
 	"go-chat/internal/adapter/db"
-	userHttp "go-chat/internal/adapter/http"
+	"go-chat/internal/adapter/http"
 	"go-chat/internal/app"
 )
 
@@ -33,26 +35,45 @@ func main() {
 
 	// build DSN
 	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s:%s)/%s",
+		"%s:%s@tcp(%s:%s)/%s?parseTime=True&loc=Local",
 		dbUser,
 		dbPass,
 		dbHost,
 		dbPort,
 		dbName,
 	)
-	conn, err := sql.Open("mysql", dsn)
+	conn, err := gorm.Open(mysql.Open(dsn))
 
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer conn.Close()
+	// defer conn.Close()
 
-	// wiring chat
-	repo := db.NewUserRepository(conn)
-	service := app.NewUserService(repo)
+	// Configure the underlying connection pool
+	sqlDB, err := conn.DB()
+	if err != nil {
+		log.Fatal("failed to get underlying database: %w", err)
+		return
+	}
 
+	sqlDB.SetMaxIdleConns(10)  // Max idle connections
+	sqlDB.SetMaxOpenConns(100) // Max open connections
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	// Initialize Repositories
+	userRepo := db.NewUserRepository(conn)
+
+	// Pack all services
+	services := http.Services{
+		UserService: app.NewUserService(userRepo),
+	}
+
+	// Create the base /api group by Gin
 	r := gin.Default()
-	userHttp.NewUserHandler(r, service)
+	api := r.Group("/api")
+
+	// Pass the group AND the routes package service
+	http.RegisterRoute(api, services)
 
 	log.Printf("API running on http://localhost:%s\n", appPort)
 	r.Run(":" + appPort)

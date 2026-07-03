@@ -1,31 +1,47 @@
 package db
 
 import (
-	"database/sql"
-	"go-chat/internal/domain"
+	"context"
+	"errors"
+	"fmt"
+	"go-chat/internal/adapter/models"
 	port "go-chat/internal/port/db"
+
+	"gorm.io/gorm"
 )
 
 type UserRepository struct {
-	db *sql.DB
+	db *gorm.DB
 }
 
-func NewUserRepository(db *sql.DB) port.UserPort {
+func NewUserRepository(db *gorm.DB) port.UserPort {
 	return &UserRepository{db: db}
 }
 
-func (r *UserRepository) GetAll() ([]domain.User, error) {
-	rows, err := r.db.Query("SELECT id, name, email FROM users")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+func (r *UserRepository) GetAll(ctx context.Context) ([]models.User, error) {
+	var users []models.User
+	result := r.db.WithContext(ctx).Find(&users)
 
-	var users []domain.User
-	for rows.Next() {
-		var u domain.User
-		rows.Scan(&u.ID, &u.Name, &u.Email)
-		users = append(users, u)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to fetch users: %w", result.Error)
 	}
+
 	return users, nil
+}
+
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+	result := r.db.WithContext(ctx).Where("email = ?", email).First(&user)
+
+	if result.Error != nil {
+		// sql.ErrNoRows means the query succeeded, but the email doesn't exist
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("user not found")
+		}
+
+		// A real database error occurred
+		return nil, fmt.Errorf("database error: %w", result.Error)
+	}
+
+	return &user, nil
 }

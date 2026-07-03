@@ -1,7 +1,11 @@
 package port
 
-import "go-chat/internal/domain"
+import (
+	"context"
+	"go-chat/internal/adapter/models"
+)
 
 type UserPort interface {
-	GetAll() ([]domain.User, error)
+	GetAll(ctx context.Context) ([]models.User, error)
+	FindByEmail(ctx context.Context, email string) (*models.User, error)
 }

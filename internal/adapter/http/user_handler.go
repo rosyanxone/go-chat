@@ -11,14 +11,14 @@ type UserHandler struct {
 	service *app.UserService
 }
 
-func NewUserHandler(r *gin.Engine, service *app.UserService) {
+func NewUserHandler(rg *gin.RouterGroup, service *app.UserService) {
 	h := &UserHandler{service: service}
 
-	r.GET("/users", h.getUsers)
+	rg.GET("/users", h.getUsers)
 }
 
 func (h *UserHandler) getUsers(c *gin.Context) {
-	users, err := h.service.GetUsers()
+	users, err := h.service.GetUsers(c.Request.Context())
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

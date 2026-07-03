@@ -1,7 +1,8 @@
 package app
 
 import (
-	"go-chat/internal/domain"
+	"context"
+	"go-chat/internal/adapter/models"
 	port "go-chat/internal/port/db"
 )
 
@@ -13,6 +14,10 @@ func NewUserService(r port.UserPort) *UserService {
 	return &UserService{repo: r}
 }
 
-func (s *UserService) GetUsers() ([]domain.User, error) {
-	return s.repo.GetAll()
+func (s *UserService) GetUsers(ctx context.Context) ([]models.User, error) {
+	return s.repo.GetAll(ctx)
+}
+
+func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	return s.repo.FindByEmail(ctx, email)
 }
