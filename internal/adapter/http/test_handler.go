@@ -1,6 +1,8 @@
 package http
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"go-chat/internal/app"
 	"log"
 	"net/http"
@@ -18,39 +20,19 @@ func NewTestHandler(rg *gin.RouterGroup, userService *app.UserService) {
 	rg.GET("/test", userH.getTest)
 }
 
-// b := make([]byte, 32) // 32 bytes = 256-bit random
-// _, err := rand.Read(b)
-// token := base64.RawURLEncoding.EncodeToString(b)
-
 func (h *TestHandler) getTest(c *gin.Context) {
-	email := c.Query("email")
-
-	data, err := h.service.GetUserByEmail(c.Request.Context(), email)
+	b := make([]byte, 32) // 32 bytes = 256-bit random
+	_, err := rand.Read(b)
 
 	if err != nil {
-		// Log the real error
 		log.Println("DB Error:", err.Error())
-
-		if err.Error() == "user not found" {
-			c.JSON(http.StatusNotFound, gin.H{
-				"status":  "failed",
-				"message": "No user exists with this email",
-				"data":    nil,
-			})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  "failed",
-			"message": "Internal server error",
-			"data":    nil,
-		})
-		return
 	}
+
+	token := base64.RawURLEncoding.EncodeToString(b)
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Test successful",
-		"data":    data,
+		"data":    token,
 	})
 }
