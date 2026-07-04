@@ -20,3 +20,12 @@ type User struct {
 	// - polymorphicValue: injects Laravel's exact namespace string
 	Roles []Role `gorm:"many2many:model_has_roles;joinForeignKey:model_id;joinReferences:role_id"`
 }
+
+func (u *User) HasRole(roleName string) bool {
+	for _, role := range u.Roles {
+		if role.Name == roleName {
+			return true
+		}
+	}
+	return false
+}

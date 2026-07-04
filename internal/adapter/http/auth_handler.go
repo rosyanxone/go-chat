@@ -24,6 +24,12 @@ func NewAuthHandler(rg *gin.RouterGroup, userService *app.UserService, authServi
 	protected := rg.Group("/")
 	protected.Use(AuthMiddleware(authService))
 	{
+		adminOnly := protected.Group("/admin")
+		adminOnly.Use(RequireRole("admin"))
+		{
+			adminOnly.GET("/user", userServiceH.GetMe)
+		}
+
 		protected.GET("/user", userServiceH.GetMe)
 	}
 }
