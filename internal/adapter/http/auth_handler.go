@@ -24,25 +24,31 @@ func NewAuthHandler(rg *gin.RouterGroup, userService *app.UserService, authServi
 
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req struct {
-		Email      string `json:"email" binding:"required,email"`
-		Password   string `json:"password" binding:"required"`
-		DeviceName string `json:"device_name" binding:"required"`
+		PhoneNumber string `json:"login" binding:"required"`
+		Password    string `json:"password" binding:"required"`
+		Platform    string `json:"platform" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"message": "request tidak valid"})
+		log.Println("DB Error:", err.Error())
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "Request payload tidak valid",
+			"data":    nil,
+		})
 		return
 	}
 
-	user, err := h.userService.GetUserByEmail(c.Request.Context(), req.Email)
+	user, err := h.userService.GetUserByPhoneNumber(c.Request.Context(), req.PhoneNumber)
 
 	if err != nil {
 		log.Println("DB Error:", err.Error())
 
-		c.JSON(401, gin.H{
+		c.JSON(http.StatusUnauthorized, gin.H{
 			"status":  "failed",
-			"message": "Email atau password salah",
-			"data":    nil, // Don't return the user object here, it's nil anyway
+			"message": "Nomor hp atau pin Anda salah!",
+			"data":    nil,
 		})
 		return
 	}
@@ -55,10 +61,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	if err != nil {
 		log.Println("DB Error:", err.Error())
 
-		c.JSON(401, gin.H{
+		c.JSON(http.StatusUnauthorized, gin.H{
 			"status":  "failed",
-			"message": "Email atau password salah",
-			"data":    user,
+			"message": "Nomor hp atau pin Anda salah!",
+			"data":    nil,
 		})
 
 		return
@@ -67,6 +73,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	plainToken, err := auth.GeneratePlainToken()
 
 	if err != nil {
+		log.Println("DB Error:", err.Error())
+
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
 			"message": "Gagal membuat token",
@@ -80,7 +88,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	personalToken := models.PersonalAccessToken{
 		TokenableID: uint64(user.ID),
-		Name:        req.DeviceName,
+		Name:        req.Platform,
 		Token:       tokenHash,
 		ExpiresAt:   nil, // tidak ada expiry
 	}
@@ -88,7 +96,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	err = h.authService.UpdateNewToken(c, &personalToken)
 
 	if err != nil {
-		// Log the real error
 		log.Println("DB Error:", err.Error())
 
 		c.JSON(http.StatusInternalServerError, gin.H{

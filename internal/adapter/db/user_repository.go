@@ -45,3 +45,20 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models
 
 	return &user, nil
 }
+
+func (r *UserRepository) FindByPhoneNumber(ctx context.Context, phoneNumber string) (*models.User, error) {
+	var user models.User
+	result := r.db.WithContext(ctx).Where("phone_number = ?", phoneNumber).First(&user)
+
+	if result.Error != nil {
+		// sql.ErrNoRows means the query succeeded, but the email doesn't exist
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("user not found")
+		}
+
+		// A real database error occurred
+		return nil, fmt.Errorf("database error: %w", result.Error)
+	}
+
+	return &user, nil
+}
