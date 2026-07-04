@@ -112,10 +112,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"status":  "success",
 		"message": "login berhasil",
 		"data": gin.H{
-			"ID":             user.ID,
-			"Name":           user.Name,
-			"PhoneNumber":    user.PhoneNumber,
-			"PlainTextToken": plainTextToken,
+			"id":           user.ID,
+			"name":         user.Name,
+			"phone_number": user.PhoneNumber,
+			"token":        plainTextToken,
+			"role":         user.Roles[0].Name,
 		},
 	})
 }

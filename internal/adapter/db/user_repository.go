@@ -48,7 +48,11 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models
 
 func (r *UserRepository) FindByPhoneNumber(ctx context.Context, phoneNumber string) (*models.User, error) {
 	var user models.User
-	result := r.db.WithContext(ctx).Where("phone_number = ?", phoneNumber).First(&user)
+
+	result := r.db.WithContext(ctx).
+		Where("phone_number = ?", phoneNumber).
+		Preload("Roles").
+		First(&user)
 
 	if result.Error != nil {
 		// sql.ErrNoRows means the query succeeded, but the email doesn't exist
