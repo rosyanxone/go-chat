@@ -1,66 +1,19 @@
 package app
 
-// func Login(c *gin.Context) {
-// 	var req struct {
-// 		Email      string `json:"email" binding:"required,email"`
-// 		Password   string `json:"password" binding:"required"`
-// 		DeviceName string `json:"device_name" binding:"required"`
-// 	}
+import (
+	"context"
+	"go-chat/internal/adapter/models"
+	port "go-chat/internal/port/db"
+)
 
-// 	if err := c.ShouldBindJSON(&req); err != nil {
-// 		c.JSON(400, gin.H{"message": "request tidak valid"})
-// 		return
-// 	}
+type AuthService struct {
+	repo port.AuthPort
+}
 
-// 	var user models.User
-// 	// if err := db.Query("email = ?", req.Email).First(&user).Error; err != nil {
-// 	// 	c.JSON(401, gin.H{"message": "email atau password salah"})
-// 	// 	return
-// 	// }
-// 	// db.
+func NewAuthService(r port.AuthPort) *AuthService {
+	return &AuthService{repo: r}
+}
 
-// 	err := bcrypt.CompareHashAndPassword(
-// 		[]byte(user.Password),
-// 		[]byte(req.Password),
-// 	)
-
-// 	if err != nil {
-// 		c.JSON(401, gin.H{"message": "email atau password salah"})
-// 		return
-// 	}
-
-// 	plainToken, err := auth.GeneratePlainToken()
-// 	if err != nil {
-// 		c.JSON(500, gin.H{"message": "gagal membuat token"})
-// 		return
-// 	}
-
-// 	tokenHash := auth.HashToken(plainToken)
-
-// 	personalToken := models.PersonalAccessToken{
-// 		UserID:    uint64(user.ID),
-// 		Name:      req.DeviceName,
-// 		TokenHash: tokenHash,
-// 		Abilities: `["chat:read","chat:write"]`,
-// 		IPAddress: c.ClientIP(),
-// 		UserAgent: c.GetHeader("User-Agent"),
-// 		ExpiresAt: nil, // tidak ada expiry
-// 	}
-
-// 	if err := db.Create(&personalToken).Error; err != nil {
-// 		c.JSON(500, gin.H{"message": "gagal menyimpan token"})
-// 		return
-// 	}
-
-// 	plainTextToken := auth.BuildPlainTextToken(personalToken.ID, plainToken)
-
-// 	c.JSON(200, gin.H{
-// 		"message": "login berhasil",
-// 		"token":   plainTextToken,
-// 		"user": gin.H{
-// 			"id":    user.ID,
-// 			"name":  user.Name,
-// 			"email": user.Email,
-// 		},
-// 	})
-// }
+func (s *AuthService) UpdateNewToken(ctx context.Context, personalToken *models.PersonalAccessToken) error {
+	return s.repo.UpdateToken(ctx, personalToken)
+}

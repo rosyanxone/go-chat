@@ -62,10 +62,12 @@ func main() {
 
 	// Initialize Repositories
 	userRepo := db.NewUserRepository(conn)
+	authRepo := db.NewAuthRepository(conn)
 
 	// Pack all services
 	services := http.Services{
 		UserService: app.NewUserService(userRepo),
+		AuthService: app.NewAuthService(authRepo),
 	}
 
 	// Create the base /api group by Gin
