@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go-chat/internal/adapter/models"
 	port "go-chat/internal/port/db"
@@ -33,4 +34,30 @@ func (r *AuthRepository) UpdateToken(ctx context.Context, personalToken *models.
 	}
 
 	return nil
+}
+
+func (r *AuthRepository) GetUserByToken(ctx context.Context, tokenID string, tokenHash string) (*models.User, error) {
+	var token models.PersonalAccessToken
+
+	// Verify the token exists and the hash matches
+	result := r.db.WithContext(ctx).
+		Where("id = ? AND token = ?", tokenID, tokenHash).
+		First(&token)
+
+	if result.Error != nil {
+		return nil, errors.New("invalid or expired token")
+	}
+
+	// Fetch the user associated with this token's UserID
+	var user models.User
+
+	userResult := r.db.WithContext(ctx).
+		Preload("Roles").
+		First(&user, token.TokenableID)
+
+	if userResult.Error != nil {
+		return nil, errors.New("user not found")
+	}
+
+	return &user, nil
 }

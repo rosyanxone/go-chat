@@ -20,6 +20,12 @@ func NewAuthHandler(rg *gin.RouterGroup, userService *app.UserService, authServi
 	userServiceH := &AuthHandler{userService: userService, authService: authService}
 
 	rg.POST("/login", userServiceH.Login)
+
+	protected := rg.Group("/")
+	protected.Use(AuthMiddleware(authService))
+	{
+		protected.GET("/user", userServiceH.GetMe)
+	}
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -117,6 +123,37 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			"phone_number": user.PhoneNumber,
 			"token":        plainTextToken,
 			"role":         user.Roles[0].Name,
+		},
+	})
+}
+
+func (h *AuthHandler) GetMe(c *gin.Context) {
+	// Use "currentUser" is the exact key set in the middleware
+	userData, exists := c.Get("currentUser")
+
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Failed to retrieve user context",
+			"data":    nil,
+		})
+		return
+	}
+
+	// Type-cast the data back into your models.User struct
+	user := userData.(*models.User)
+
+	// Return the user
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "User data successfully retrived",
+		"data": gin.H{
+			"id":           user.ID,
+			"name":         user.Name,
+			"email":        user.Email,
+			"phone_number": user.PhoneNumber,
+			"role":         user.Roles[0].Name,
+			"updated_at":   user.UpdatedAt,
 		},
 	})
 }
