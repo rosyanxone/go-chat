@@ -76,13 +76,19 @@ func main() {
 		AuthService: app.NewAuthService(authRepo),
 	}
 
+	// Creates a blank router default by Gin
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.Default()
+
+	// NOT using any reverse proxy
+	router.SetTrustedProxies(nil)
+
 	// Create the base /api group by Gin
-	r := gin.Default()
-	api := r.Group("/api")
+	api := router.Group("/api")
 
 	// Pass the group AND the routes package service
 	http.RegisterRoute(api, services)
 
 	log.Printf("API running on http://localhost:%s\n", appPort)
-	r.Run(":" + appPort)
+	router.Run(":" + appPort)
 }
