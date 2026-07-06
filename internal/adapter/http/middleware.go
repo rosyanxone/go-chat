@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"go-chat/internal/adapter/models"
 	"go-chat/internal/app"
+	"go-chat/internal/domain"
 )
 
 func AuthMiddleware(authService *app.AuthService) gin.HandlerFunc {
@@ -69,7 +69,7 @@ func RequireRole(allowedRoles ...string) gin.HandlerFunc {
 			return
 		}
 
-		user := userData.(*models.User)
+		user := userData.(*domain.User)
 
 		// Check if the user has any of the allowed roles
 		hasAccess := false

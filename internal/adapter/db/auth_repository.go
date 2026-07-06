@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go-chat/internal/adapter/models"
-	port "go-chat/internal/port/db"
+	"go-chat/internal/domain"
+	port "go-chat/internal/port"
 
 	"gorm.io/gorm"
 )
@@ -14,11 +14,11 @@ type AuthRepository struct {
 	db *gorm.DB
 }
 
-func NewAuthRepository(db *gorm.DB) port.AuthPort {
+func NewAuthRepository(db *gorm.DB) port.AuthRepository {
 	return &AuthRepository{db: db}
 }
 
-func (r *AuthRepository) UpdateToken(ctx context.Context, personalToken *models.PersonalAccessToken) error {
+func (r *AuthRepository) UpdateToken(ctx context.Context, personalToken *domain.PersonalAccessToken) error {
 	result := r.db.WithContext(ctx).
 		Where("tokenable_id = ? AND name = ?", personalToken.TokenableID, personalToken.Name).
 		Delete(personalToken)
@@ -36,8 +36,8 @@ func (r *AuthRepository) UpdateToken(ctx context.Context, personalToken *models.
 	return nil
 }
 
-func (r *AuthRepository) GetUserByToken(ctx context.Context, tokenID string, tokenHash string) (*models.User, error) {
-	var token models.PersonalAccessToken
+func (r *AuthRepository) GetUserByToken(ctx context.Context, tokenID string, tokenHash string) (*domain.User, error) {
+	var token domain.PersonalAccessToken
 
 	// Verify the token exists and the hash matches
 	result := r.db.WithContext(ctx).
@@ -49,7 +49,7 @@ func (r *AuthRepository) GetUserByToken(ctx context.Context, tokenID string, tok
 	}
 
 	// Fetch the user associated with this token's UserID
-	var user models.User
+	var user domain.User
 
 	userResult := r.db.WithContext(ctx).
 		Preload("Roles").

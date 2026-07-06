@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go-chat/internal/adapter/models"
-	port "go-chat/internal/port/db"
+	"go-chat/internal/domain"
+	port "go-chat/internal/port"
 
 	"gorm.io/gorm"
 )
@@ -14,12 +14,12 @@ type UserRepository struct {
 	db *gorm.DB
 }
 
-func NewUserRepository(db *gorm.DB) port.UserPort {
+func NewUserRepository(db *gorm.DB) port.UserRepository {
 	return &UserRepository{db: db}
 }
 
-func (r *UserRepository) GetAll(ctx context.Context) ([]models.User, error) {
-	var users []models.User
+func (r *UserRepository) GetAll(ctx context.Context) ([]domain.User, error) {
+	var users []domain.User
 	result := r.db.WithContext(ctx).Find(&users)
 
 	if result.Error != nil {
@@ -29,8 +29,8 @@ func (r *UserRepository) GetAll(ctx context.Context) ([]models.User, error) {
 	return users, nil
 }
 
-func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {
-	var user models.User
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*domain.User, error) {
+	var user domain.User
 	result := r.db.WithContext(ctx).Where("email = ?", email).First(&user)
 
 	if result.Error != nil {
@@ -46,8 +46,8 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*models
 	return &user, nil
 }
 
-func (r *UserRepository) FindByPhoneNumber(ctx context.Context, phoneNumber string) (*models.User, error) {
-	var user models.User
+func (r *UserRepository) FindByPhoneNumber(ctx context.Context, phoneNumber string) (*domain.User, error) {
+	var user domain.User
 
 	result := r.db.WithContext(ctx).
 		Where("phone_number = ?", phoneNumber).

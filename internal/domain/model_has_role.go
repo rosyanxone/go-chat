@@ -1,4 +1,4 @@
-package models
+package domain
 
 type ModelHasRole struct {
 	RoleID    uint   `gorm:"primaryKey;column:role_id"`

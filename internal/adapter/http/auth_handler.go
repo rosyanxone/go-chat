@@ -1,9 +1,9 @@
 package http
 
 import (
-	"go-chat/internal/adapter/models"
 	"go-chat/internal/app"
 	"go-chat/internal/app/auth"
+	"go-chat/internal/domain"
 	"log"
 	"net/http"
 
@@ -25,7 +25,7 @@ func NewAuthHandler(rg *gin.RouterGroup, userService *app.UserService, authServi
 	protected.Use(AuthMiddleware(authService))
 	{
 		adminOnly := protected.Group("/admin")
-		adminOnly.Use(RequireRole("admin"))
+		adminOnly.Use(RequireRole("admin", "root"))
 		{
 			adminOnly.GET("/user", userServiceH.GetMe)
 		}
@@ -98,7 +98,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	tokenHash := auth.HashToken(plainToken)
 
-	personalToken := models.PersonalAccessToken{
+	personalToken := domain.PersonalAccessToken{
 		TokenableID: uint64(user.ID),
 		Name:        req.Platform,
 		Token:       tokenHash,
@@ -146,8 +146,8 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 		return
 	}
 
-	// Type-cast the data back into your models.User struct
-	user := userData.(*models.User)
+	// Type-cast the data back into your domain.User struct
+	user := userData.(*domain.User)
 
 	// Return the user
 	c.JSON(http.StatusOK, gin.H{

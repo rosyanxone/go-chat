@@ -14,8 +14,8 @@ import (
 
 	"go-chat/internal/adapter/db"
 	"go-chat/internal/adapter/http"
-	"go-chat/internal/adapter/models"
 	"go-chat/internal/app"
+	"go-chat/internal/domain"
 )
 
 func main() {
@@ -49,7 +49,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = conn.SetupJoinTable(&models.User{}, "Roles", &models.ModelHasRole{})
+	err = conn.SetupJoinTable(&domain.User{}, "Roles", &domain.ModelHasRole{})
 	if err != nil {
 		log.Fatal("Failed to setup join table")
 	}
