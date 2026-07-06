@@ -21,6 +21,10 @@ func (s *AuthService) UpdateNewToken(ctx context.Context, personalToken *domain.
 	return s.repo.UpdateToken(ctx, personalToken)
 }
 
+func (s *AuthService) DeleteWebToken(ctx context.Context, userID string) error {
+	return s.repo.DeleteWebTokenByUserID(ctx, userID)
+}
+
 // middleware purpose
 func (s *AuthService) GetUserFromBearerToken(ctx context.Context, bearerToken string) (*domain.User, error) {
 	parts := strings.Split(bearerToken, "|")

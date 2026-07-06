@@ -61,3 +61,15 @@ func (r *AuthRepository) GetUserByToken(ctx context.Context, tokenID string, tok
 
 	return &user, nil
 }
+
+func (r *AuthRepository) DeleteWebTokenByUserID(ctx context.Context, userID string) error {
+	result := r.db.WithContext(ctx).
+		Where("name = 'web' AND tokenable_id = ?", userID).
+		Delete(&domain.PersonalAccessToken{})
+
+	if result.Error != nil {
+		return fmt.Errorf("failed to delete user tokens: %w", result.Error)
+	}
+
+	return nil
+}

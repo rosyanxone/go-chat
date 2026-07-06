@@ -4,7 +4,6 @@ import (
 	"go-chat/internal/app"
 	"go-chat/internal/app/auth"
 	"go-chat/internal/domain"
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -17,9 +16,10 @@ type AuthHandler struct {
 }
 
 func NewAuthHandler(rg *gin.RouterGroup, userService *app.UserService, authService *app.AuthService) {
-	userServiceH := &AuthHandler{userService: userService, authService: authService}
+	h := &AuthHandler{userService: userService, authService: authService}
 
-	rg.POST("/login", userServiceH.Login)
+	rg.POST("/validate/phone-number", h.ValidatePhoneNumber)
+	rg.POST("/login", h.Login)
 
 	protected := rg.Group("/")
 	protected.Use(AuthMiddleware(authService))
@@ -27,11 +27,59 @@ func NewAuthHandler(rg *gin.RouterGroup, userService *app.UserService, authServi
 		adminOnly := protected.Group("/admin")
 		adminOnly.Use(RequireRole("admin", "root"))
 		{
-			adminOnly.GET("/user", userServiceH.GetMe)
+			adminOnly.GET("/user", h.GetMe)
 		}
 
-		protected.GET("/user", userServiceH.GetMe)
+		protected.GET("/user", h.GetMe)
+		protected.POST("/logout", h.Logout)
 	}
+}
+
+func (h *AuthHandler) ValidatePhoneNumber(c *gin.Context) {
+	var req struct {
+		PhoneNumber string `json:"phone_number" binding:"required"`
+	}
+
+	if err := c.ShouldBind(&req); err != nil {
+		// log.Println("Req Error:", err.Error())
+		c.Error(err)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "Nomor hp harus diisi!",
+			"data":    nil,
+		})
+		return
+	}
+
+	_, err := h.userService.GetUserByPhoneNumber(c.Request.Context(), req.PhoneNumber)
+
+	if err != nil {
+		// log.Println("DB Error:", err.Error())
+		c.Error(err)
+
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"status":  "failed",
+				"message": "Nomor hp yang diberikan tidak terdaftar!",
+				"data":    nil,
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Terjadi kesalahan",
+			"data":    nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Nomor hp yang diberikan berhasil divalidasi",
+		"data":    nil,
+	})
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -42,7 +90,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Println("DB Error:", err.Error())
+		// log.Println("Req Error:", err.Error())
+		c.Error(err)
 
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
@@ -55,7 +104,17 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	user, err := h.userService.GetUserByPhoneNumber(c.Request.Context(), req.PhoneNumber)
 
 	if err != nil {
-		log.Println("DB Error:", err.Error())
+		// log.Println("DB Error:", err.Error())
+		c.Error(err)
+
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"status":  "failed",
+				"message": "Nomor hp yang diberikan tidak terdaftar!",
+				"data":    nil,
+			})
+			return
+		}
 
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"status":  "failed",
@@ -71,7 +130,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	)
 
 	if err != nil {
-		log.Println("DB Error:", err.Error())
+		// log.Println("DB Error:", err.Error())
+		c.Error(err)
 
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"status":  "failed",
@@ -85,7 +145,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	plainToken, err := auth.GeneratePlainToken()
 
 	if err != nil {
-		log.Println("DB Error:", err.Error())
+		// log.Println("DB Error:", err.Error())
+		c.Error(err)
 
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
@@ -108,7 +169,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	err = h.authService.UpdateNewToken(c, &personalToken)
 
 	if err != nil {
-		log.Println("DB Error:", err.Error())
+		// log.Println("DB Error:", err.Error())
+		c.Error(err)
 
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
@@ -130,6 +192,44 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			"token":        plainTextToken,
 			"role":         user.Roles[0].Name,
 		},
+	})
+}
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	var req struct {
+		UserID string `json:"user_id" binding:"required"`
+	}
+
+	err := c.ShouldBind(&req)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "Payload user_id required!",
+			"data":    nil,
+		})
+		return
+	}
+
+	// err = h.authService.DeleteWebToken(c, req.UserID)
+
+	// if err != nil {
+	// 	log.Println("DB Error:", err.Error())
+
+	// 	c.JSON(http.StatusInternalServerError, gin.H{
+	// 		"status":  "failed",
+	// 		"message": "Terjadi kesalahan",
+	// 		"data":    nil,
+	// 	})
+	// 	return
+	// }
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "User successfully logged out",
+		"data":    nil,
 	})
 }
 
