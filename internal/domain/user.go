@@ -15,6 +15,9 @@ type User struct {
 	// This single line bridges Go to Laravel's model_has_roles table.
 	// - many2many: tells GORM the pivot table name
 	Roles []Role `gorm:"many2many:model_has_roles;joinForeignKey:model_id;joinReferences:role_id"`
+
+	// Related to Employee: Has One
+	Employee Employee `gorm:"foreignKey:UserID;references:ID"`
 }
 
 func (u *User) HasRole(roleName string) bool {

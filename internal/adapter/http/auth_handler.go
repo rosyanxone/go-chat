@@ -2,7 +2,6 @@ package http
 
 import (
 	"go-chat/internal/app"
-	"go-chat/internal/app/auth"
 	"go-chat/internal/domain"
 	"net/http"
 
@@ -20,6 +19,7 @@ func NewAuthHandler(rg *gin.RouterGroup, userService *app.UserService, authServi
 
 	rg.POST("/validate/phone-number", h.ValidatePhoneNumber)
 	rg.POST("/login", h.Login)
+	rg.POST("/register", h.Register)
 
 	protected := rg.Group("/")
 	protected.Use(AuthMiddleware(authService))
@@ -89,8 +89,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Platform    string `json:"platform" binding:"required"`
 	}
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		// log.Println("Req Error:", err.Error())
+	err := c.ShouldBindJSON(&req)
+
+	if err != nil {
 		c.Error(err)
 
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -104,7 +105,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	user, err := h.userService.GetUserByPhoneNumber(c.Request.Context(), req.PhoneNumber)
 
 	if err != nil {
-		// log.Println("DB Error:", err.Error())
 		c.Error(err)
 
 		if err.Error() == "user not found" {
@@ -130,7 +130,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	)
 
 	if err != nil {
-		// log.Println("DB Error:", err.Error())
 		c.Error(err)
 
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -142,34 +141,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	plainToken, err := auth.GeneratePlainToken()
+	plainTextToken, err := h.authService.GetUserNewToken(c, uint64(user.ID))
 
 	if err != nil {
-		// log.Println("DB Error:", err.Error())
-		c.Error(err)
-
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  "failed",
-			"message": "Gagal membuat token",
-			"data":    nil,
-		})
-
-		return
-	}
-
-	tokenHash := auth.HashToken(plainToken)
-
-	personalToken := domain.PersonalAccessToken{
-		TokenableID: uint64(user.ID),
-		Name:        req.Platform,
-		Token:       tokenHash,
-		ExpiresAt:   nil, // tidak ada expiry
-	}
-
-	err = h.authService.UpdateNewToken(c, &personalToken)
-
-	if err != nil {
-		// log.Println("DB Error:", err.Error())
 		c.Error(err)
 
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -179,8 +153,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		})
 		return
 	}
-
-	plainTextToken := auth.BuildPlainTextToken(uint64(personalToken.ID), plainToken)
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
@@ -230,6 +202,113 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		"status":  "success",
 		"message": "User successfully logged out",
 		"data":    nil,
+	})
+}
+
+func (h *AuthHandler) Register(c *gin.Context) {
+	var req struct {
+		PhoneNumber string  `json:"phone_number" binding:"required"`
+		Platform    string  `json:"platform" binding:"required"`
+		Name        string  `json:"name" binding:"required"`
+		Email       string  `json:"email" binding:"required,email"`
+		Role        string  `json:"role" binding:"required"`
+		NIK         *string `json:"nik" `
+		Password    string  `json:"password" binding:"required"`
+	}
+
+	if err := c.ShouldBind(&req); err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "Request payload harus terpenuhi!",
+			"data":    nil,
+		})
+		return
+	}
+
+	user, _ := h.userService.GetUserByPhoneNumber(c.Request.Context(), req.PhoneNumber)
+
+	if user != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"status":  "failed",
+			"message": "Nomor hp telah didaftarkan!",
+			"data":    nil,
+		})
+		return
+	}
+
+	user, _ = h.userService.GetUserByEmail(c.Request.Context(), req.Email)
+
+	if user != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"status":  "failed",
+			"message": "Email telah didaftarkan!",
+			"data":    nil,
+		})
+		return
+	}
+
+	newUser := domain.User{
+		PhoneNumber: req.PhoneNumber,
+		Name:        req.Name,
+		Email:       req.Email,
+		Password:    req.Password,
+	}
+
+	var newEmployee domain.Employee
+
+	if req.Role == "employee" {
+		if *req.NIK == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  "failed",
+				"message": "NIK harus diisi!",
+				"data":    nil,
+			})
+			return
+		}
+
+		newEmployee = domain.Employee{
+			UniqueNumber: *req.NIK,
+		}
+	}
+
+	err := h.userService.RegisterNewUser(c, &newUser, &newEmployee, req.Role)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Terjadi kesalahan",
+			"data":    nil,
+		})
+		return
+	}
+
+	plainTextToken, err := h.authService.GetUserNewToken(c, uint64(newUser.ID))
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Gagal menyimpan token",
+			"data":    nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  "success",
+		"message": "User berhasil dibuat",
+		"data": gin.H{
+			"id":           newUser.ID,
+			"name":         newUser.Name,
+			"phone_number": newUser.PhoneNumber,
+			"role":         newUser.Roles[0].Name,
+			"token":        plainTextToken,
+		},
 	})
 }
 

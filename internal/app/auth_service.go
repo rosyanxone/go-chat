@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"go-chat/internal/app/auth"
 	"go-chat/internal/domain"
 	port "go-chat/internal/port"
@@ -23,6 +24,33 @@ func (s *AuthService) UpdateNewToken(ctx context.Context, personalToken *domain.
 
 func (s *AuthService) DeleteWebToken(ctx context.Context, userID string) error {
 	return s.repo.DeleteWebTokenByUserID(ctx, userID)
+}
+
+func (s *AuthService) GetUserNewToken(ctx context.Context, userID uint64) (string, error) {
+	plainToken, err := auth.GeneratePlainToken()
+
+	if err != nil {
+		return "", fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	tokenHash := auth.HashToken(plainToken)
+
+	personalToken := domain.PersonalAccessToken{
+		TokenableID: userID,
+		Name:        "web",
+		Token:       tokenHash,
+		ExpiresAt:   nil, // tidak ada expiry
+	}
+
+	err = s.repo.UpdateToken(ctx, &personalToken)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to save token to database: %w", err)
+	}
+
+	plainTextToken := auth.BuildPlainTextToken(uint64(personalToken.ID), plainToken)
+
+	return plainTextToken, nil
 }
 
 // middleware purpose

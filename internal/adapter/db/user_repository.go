@@ -31,15 +31,17 @@ func (r *UserRepository) GetAll(ctx context.Context) ([]domain.User, error) {
 
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var user domain.User
-	result := r.db.WithContext(ctx).Where("email = ?", email).First(&user)
+
+	result := r.db.WithContext(ctx).
+		Where("email = ?", email).
+		Preload("Roles").
+		First(&user)
 
 	if result.Error != nil {
-		// sql.ErrNoRows means the query succeeded, but the email doesn't exist
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("user not found")
 		}
 
-		// A real database error occurred
 		return nil, fmt.Errorf("database error: %w", result.Error)
 	}
 
@@ -65,4 +67,72 @@ func (r *UserRepository) FindByPhoneNumber(ctx context.Context, phoneNumber stri
 	}
 
 	return &user, nil
+}
+
+func (r *UserRepository) GetRoleIDByName(ctx context.Context, roleName string) (uint, error) {
+	var role domain.Role
+
+	result := r.db.WithContext(ctx).
+		Where("name = ?", roleName).
+		First(&role)
+
+	if result.Error != nil {
+		return 0, fmt.Errorf("database error: %w", result.Error)
+	}
+
+	return role.ID, nil
+}
+
+func (r *UserRepository) CreateUser(ctx context.Context, user *domain.User, employee *domain.Employee, roleID uint) error {
+	tx := r.db.WithContext(ctx).Begin()
+
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// Automatically rollback if the function exits before committing
+	defer tx.Rollback()
+
+	newUser := domain.User{
+		Name:        user.Name,
+		Email:       user.Email,
+		PhoneNumber: user.PhoneNumber,
+		Password:    user.Password,
+	}
+
+	if employee.UniqueNumber != "" {
+		newUser.Employee = domain.Employee{
+			UniqueNumber: employee.UniqueNumber,
+		}
+	}
+
+	err := tx.Create(&newUser).Error
+
+	if err != nil {
+		return err
+	}
+
+	// Manually create the Spatie Pivot Record
+	spatiePivot := domain.ModelHasRole{
+		RoleID:  roleID,
+		ModelID: newUser.ID,
+	}
+
+	err = tx.Create(&spatiePivot).Error
+
+	if err != nil {
+		return err
+	}
+
+	// Fetch the full role from database and attach it to newUser variable
+	err = tx.Preload("Roles").First(&newUser, newUser.ID).Error
+
+	if err != nil {
+		return err
+	}
+
+	// Map the new User back to the original pointer so Handler knows the new ID!
+	*user = newUser
+
+	return tx.Commit().Error
 }

@@ -19,21 +19,24 @@ func NewAuthRepository(db *gorm.DB) port.AuthRepository {
 }
 
 func (r *AuthRepository) UpdateToken(ctx context.Context, personalToken *domain.PersonalAccessToken) error {
-	result := r.db.WithContext(ctx).
-		Where("tokenable_id = ? AND name = ?", personalToken.TokenableID, personalToken.Name).
-		Delete(personalToken)
+	tx := r.db.WithContext(ctx).Begin()
 
-	if result.Error != nil {
-		return fmt.Errorf("database delete token error: %w", result.Error)
+	deleteResult := tx.Where("name = 'web' AND tokenable_id = ?", personalToken.TokenableID).
+		Delete(&domain.PersonalAccessToken{})
+
+	if deleteResult.Error != nil {
+		tx.Rollback()
+		return fmt.Errorf("database delete token error: %w", deleteResult.Error)
 	}
 
-	result = r.db.Create(personalToken)
+	createResult := tx.Create(personalToken)
 
-	if result.Error != nil {
-		return fmt.Errorf("database create token error: %w", result.Error)
+	if createResult.Error != nil {
+		tx.Rollback()
+		return fmt.Errorf("database create token error: %w", createResult.Error)
 	}
 
-	return nil
+	return tx.Commit().Error
 }
 
 func (r *AuthRepository) GetUserByToken(ctx context.Context, tokenID string, tokenHash string) (*domain.User, error) {
