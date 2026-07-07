@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
+
 	"go-chat/internal/domain"
 	port "go-chat/internal/port"
 
@@ -43,12 +45,20 @@ func (r *AuthRepository) GetUserByToken(ctx context.Context, tokenID string, tok
 	var token domain.PersonalAccessToken
 
 	// Verify the token exists and the hash matches
-	result := r.db.WithContext(ctx).
-		Where("id = ? AND token = ?", tokenID, tokenHash).
-		First(&token)
+	query := r.db.WithContext(ctx).Where("token = ?", tokenHash)
 
-	if result.Error != nil {
-		return nil, errors.New("invalid or expired token")
+	if tokenID != "" {
+		query = query.Where("id = ?", tokenID)
+	}
+
+	err := query.First(&token).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("invalid or expired token")
+		}
+
+		return nil, fmt.Errorf("database error during token lookup: %w", err)
 	}
 
 	// Fetch the user associated with this token's UserID
@@ -75,4 +85,15 @@ func (r *AuthRepository) DeleteWebTokenByUserID(ctx context.Context, userID stri
 	}
 
 	return nil
+}
+
+func (r *AuthRepository) UpdateLastUsedToken(ctx context.Context, tokenID string) error {
+	now := time.Now()
+
+	err := r.db.Model(&domain.PersonalAccessToken{}).
+		Where("id = ?", tokenID).
+		Update("last_used_at", now).
+		Error
+
+	return err
 }

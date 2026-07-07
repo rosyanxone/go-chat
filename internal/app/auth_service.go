@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"go-chat/internal/app/auth"
 	"go-chat/internal/domain"
@@ -54,16 +53,29 @@ func (s *AuthService) GetUserNewToken(ctx context.Context, userID uint64) (strin
 }
 
 // middleware purpose
-func (s *AuthService) GetUserFromBearerToken(ctx context.Context, bearerToken string) (*domain.User, error) {
-	parts := strings.Split(bearerToken, "|")
-	if len(parts) != 2 {
-		return nil, errors.New("Invalid token format")
-	}
+func (s *AuthService) UpdateLastUsedToken(ctx context.Context, tokenID string) error {
+	return s.repo.UpdateLastUsedToken(ctx, tokenID)
+}
 
-	tokenID := parts[0]
-	plainToken := parts[1]
+func (s *AuthService) GetUserByToken(ctx context.Context, tokenID string, tokenHash string) (*domain.User, error) {
+	return s.repo.GetUserByToken(ctx, tokenID, tokenHash)
+}
+
+func (s *AuthService) GetTokenByBearer(ctx context.Context, bearerToken string) (string, string) {
+	parts := strings.Split(bearerToken, "|")
+
+	var tokenID string
+	var plainToken string
+
+	if len(parts) != 2 {
+		tokenID = ""
+		plainToken = parts[0]
+	} else {
+		tokenID = parts[0]
+		plainToken = parts[1]
+	}
 
 	tokenHash := auth.HashToken(plainToken)
 
-	return s.repo.GetUserByToken(ctx, tokenID, tokenHash)
+	return tokenID, tokenHash
 }

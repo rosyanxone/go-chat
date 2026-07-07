@@ -1,7 +1,6 @@
 package http
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -37,7 +36,10 @@ func AuthMiddleware(authService *app.AuthService) gin.HandlerFunc {
 		// Extract the token
 		rawToken := strings.TrimPrefix(authHeader, "Bearer ")
 
-		user, err := authService.GetUserFromBearerToken(c.Request.Context(), rawToken)
+		tokenID, tokenHash := authService.GetTokenByBearer(c, rawToken)
+
+		user, err := authService.GetUserByToken(c.Request.Context(), tokenID, tokenHash)
+
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"status":  "failed",
@@ -45,10 +47,20 @@ func AuthMiddleware(authService *app.AuthService) gin.HandlerFunc {
 				"data":    nil,
 			})
 		}
-		fmt.Println(user)
+
+		err = authService.UpdateLastUsedToken(c, tokenID)
+
+		if err != nil {
+			c.Error(err)
+
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+				"status":  "failed",
+				"message": "Terjadi kesalahan",
+				"data":    nil,
+			})
+		}
 
 		// Store the user object securely inside the Gin context
-		// This makes the user data available to any handler that runs after this middleware
 		c.Set("currentUser", user)
 
 		// Continue to the next handler

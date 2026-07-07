@@ -30,6 +30,12 @@ func (s *UserService) GetUserByPhoneNumber(ctx context.Context, phoneNumber stri
 }
 
 func (s *UserService) RegisterNewUser(ctx context.Context, user *domain.User, employee *domain.Employee, roleName string) error {
+	roleID, err := s.repo.GetRoleIDByName(ctx, roleName)
+
+	if err != nil {
+		return fmt.Errorf("failed to get role id: %w", err)
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 
 	if err != nil {
@@ -37,12 +43,6 @@ func (s *UserService) RegisterNewUser(ctx context.Context, user *domain.User, em
 	}
 
 	user.Password = string(hashedPassword)
-
-	roleID, err := s.repo.GetRoleIDByName(ctx, roleName)
-
-	if err != nil {
-		return fmt.Errorf("failed to get role id: %w", err)
-	}
 
 	return s.repo.CreateUser(ctx, user, employee, roleID)
 }

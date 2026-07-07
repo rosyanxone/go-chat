@@ -9,4 +9,5 @@ type AuthRepository interface {
 	UpdateToken(ctx context.Context, personalToken *domain.PersonalAccessToken) error
 	GetUserByToken(ctx context.Context, tokenID string, tokenHash string) (*domain.User, error)
 	DeleteWebTokenByUserID(ctx context.Context, userID string) error
+	UpdateLastUsedToken(ctx context.Context, tokenID string) error
 }
