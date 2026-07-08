@@ -8,6 +8,7 @@ import (
 type AuthRepository interface {
 	UpdateToken(ctx context.Context, personalToken *domain.PersonalAccessToken) error
 	GetUserByToken(ctx context.Context, tokenID string, tokenHash string) (*domain.User, error)
+	GetTokenByHash(ctx context.Context, tokenHash string) (*domain.PersonalAccessToken, error)
 	DeleteWebTokenByUserID(ctx context.Context, userID string) error
 	UpdateLastUsedToken(ctx context.Context, tokenID string) error
 }

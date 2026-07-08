@@ -75,6 +75,18 @@ func (r *AuthRepository) GetUserByToken(ctx context.Context, tokenID string, tok
 	return &user, nil
 }
 
+func (r *AuthRepository) GetTokenByHash(ctx context.Context, tokenHash string) (*domain.PersonalAccessToken, error) {
+	var token domain.PersonalAccessToken
+
+	err := r.db.WithContext(ctx).Where("token = ?", tokenHash).First(&token).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("database error during token lookup: %w", err)
+	}
+
+	return &token, nil
+}
+
 func (r *AuthRepository) DeleteWebTokenByUserID(ctx context.Context, userID string) error {
 	result := r.db.WithContext(ctx).
 		Where("name = 'web' AND tokenable_id = ?", userID).
@@ -94,6 +106,7 @@ func (r *AuthRepository) UpdateLastUsedToken(ctx context.Context, tokenID string
 		Where("id = ?", tokenID).
 		Update("last_used_at", now).
 		Error
+	fmt.Println(err)
 
 	return err
 }

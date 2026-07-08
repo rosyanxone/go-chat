@@ -6,6 +6,8 @@ import (
 	"go-chat/internal/app/auth"
 	"go-chat/internal/domain"
 	port "go-chat/internal/port"
+	"log"
+	"strconv"
 	"strings"
 )
 
@@ -76,6 +78,16 @@ func (s *AuthService) GetTokenByBearer(ctx context.Context, bearerToken string) 
 	}
 
 	tokenHash := auth.HashToken(plainToken)
+
+	if tokenID == "" {
+		token, err := s.repo.GetTokenByHash(ctx, tokenHash)
+
+		if err != nil {
+			log.Print(err.Error())
+		} else {
+			tokenID = strconv.FormatUint(uint64(token.ID), 10)
+		}
+	}
 
 	return tokenID, tokenHash
 }
