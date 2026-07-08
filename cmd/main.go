@@ -13,7 +13,6 @@ import (
 	"gorm.io/gorm"
 
 	"go-chat/internal/adapter/db"
-	"go-chat/internal/adapter/http"
 	"go-chat/internal/app"
 	"go-chat/internal/app/ai"
 	"go-chat/internal/domain"
@@ -69,16 +68,18 @@ func main() {
 	// Initialize Repositories
 	userRepo := db.NewUserRepository(conn)
 	authRepo := db.NewAuthRepository(conn)
+	notificationRepo := db.NewNotificationRepository(conn)
 
 	// Inital AI client
 	client := ai.Client()
 	defer client.Close()
 
 	// Pack all services
-	services := http.Services{
-		UserService: app.NewUserService(userRepo),
-		AuthService: app.NewAuthService(authRepo),
-		TestService: app.NewTestService(client),
+	services := Services{
+		TestService:         app.NewTestService(client),
+		UserService:         app.NewUserService(userRepo),
+		AuthService:         app.NewAuthService(authRepo),
+		NotificationService: app.NewNotificationService(notificationRepo),
 	}
 
 	// Creates a blank router default by Gin
@@ -92,7 +93,7 @@ func main() {
 	api := router.Group("/api")
 
 	// Pass the group AND the routes package service
-	http.RegisterRoute(api, services)
+	RegisterRoute(api, services)
 
 	log.Printf("API running on http://localhost:%s\n", appPort)
 	router.Run(":" + appPort)
