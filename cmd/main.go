@@ -15,6 +15,7 @@ import (
 	"go-chat/internal/adapter/db"
 	"go-chat/internal/adapter/http"
 	"go-chat/internal/app"
+	"go-chat/internal/app/ai"
 	"go-chat/internal/domain"
 )
 
@@ -53,7 +54,6 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to setup join table")
 	}
-	// defer conn.Close()
 
 	// Configure the underlying connection pool
 	sqlDB, err := conn.DB()
@@ -70,10 +70,15 @@ func main() {
 	userRepo := db.NewUserRepository(conn)
 	authRepo := db.NewAuthRepository(conn)
 
+	// Inital AI client
+	client := ai.Client()
+	defer client.Close()
+
 	// Pack all services
 	services := http.Services{
 		UserService: app.NewUserService(userRepo),
 		AuthService: app.NewAuthService(authRepo),
+		TestService: app.NewTestService(client),
 	}
 
 	// Creates a blank router default by Gin

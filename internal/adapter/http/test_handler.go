@@ -1,38 +1,49 @@
 package http
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"go-chat/internal/app"
-	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 type TestHandler struct {
-	service *app.UserService
+	userService *app.UserService
+	testService *app.TestService
 }
 
-func NewTestHandler(rg *gin.RouterGroup, userService *app.UserService) {
-	userH := &TestHandler{service: userService}
+func NewTestHandler(rg *gin.RouterGroup, userService *app.UserService, testService *app.TestService) {
+	h := &TestHandler{userService, testService} // equals to: {userService: userService, testService: testService}
 
-	rg.GET("/test", userH.getTest)
+	rg.POST("/test", h.getTest)
 }
 
 func (h *TestHandler) getTest(c *gin.Context) {
-	b := make([]byte, 32) // 32 bytes = 256-bit random
-	_, err := rand.Read(b)
-
-	if err != nil {
-		log.Println("DB Error:", err.Error())
+	var req struct {
+		Body string `json:"body" binding:"required"`
 	}
 
-	token := base64.RawURLEncoding.EncodeToString(b)
+	err := c.ShouldBindJSON(&req)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "Request payload tidak valid",
+			"data":    nil,
+		})
+		return
+	}
+
+	result, respond := h.testService.Prompt(req.Body)
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Test successful",
-		"data":    token,
+		"data": gin.H{
+			"answer":  result,
+			"respond": respond,
+		},
 	})
 }
