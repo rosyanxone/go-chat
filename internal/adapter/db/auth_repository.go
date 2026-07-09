@@ -106,7 +106,6 @@ func (r *AuthRepository) UpdateLastUsedToken(ctx context.Context, tokenID string
 		Where("id = ?", tokenID).
 		Update("last_used_at", now).
 		Error
-	fmt.Println(err)
 
 	return err
 }

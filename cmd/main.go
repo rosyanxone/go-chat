@@ -69,6 +69,7 @@ func main() {
 	userRepo := db.NewUserRepository(conn)
 	authRepo := db.NewAuthRepository(conn)
 	notificationRepo := db.NewNotificationRepository(conn)
+	chatRepo := db.NewChatRepository(conn)
 
 	// Inital AI client
 	client := ai.Client()
@@ -80,6 +81,7 @@ func main() {
 		UserService:         app.NewUserService(userRepo),
 		AuthService:         app.NewAuthService(authRepo),
 		NotificationService: app.NewNotificationService(notificationRepo),
+		ChatService:         app.NewChatService(chatRepo),
 	}
 
 	// Creates a blank router default by Gin

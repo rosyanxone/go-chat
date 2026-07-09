@@ -13,11 +13,13 @@ type Services struct {
 	AuthService         *app.AuthService
 	TestService         *app.TestService
 	NotificationService *app.NotificationService
+	ChatService         *app.ChatService
 }
 
 func RegisterRoute(api *gin.RouterGroup, services Services) {
-	http.NewTestHandler(api, services.UserService, services.TestService)
+	http.NewTestHandler(api, services.UserService, services.TestService, services.ChatService)
 	http.NewUserHandler(api, services.UserService)
 	http.NewAuthHandler(api, services.UserService, services.AuthService)
 	http.NewNotificationHandler(api, services.NotificationService, services.AuthService)
+	http.NewChatHandler(api, services.ChatService, services.AuthService)
 }

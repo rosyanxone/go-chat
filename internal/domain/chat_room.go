@@ -2,7 +2,7 @@ package domain
 
 type ChatRoom struct {
 	ID    uint `gorm:"primaryKey"`
-	title string
+	Title string
 	Type  ChatRoomType `gorm:"type:enum('private', 'group');default:'private'"`
 }
 
