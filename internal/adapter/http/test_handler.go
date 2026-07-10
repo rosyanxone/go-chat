@@ -3,6 +3,7 @@ package http
 import (
 	"go-chat/internal/app"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,12 +22,12 @@ func NewTestHandler(rg *gin.RouterGroup, userService *app.UserService, testServi
 }
 
 func (h *TestHandler) getTest(c *gin.Context) {
-	chatRooms, err := h.chatService.GetRooms(c, "1175")
+	messages, err := h.chatService.GetAndReadMessages(c, "5", strconv.FormatUint(uint64(1175), 10), 7)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
-			"message": "Request payload tidak valid",
+			"message": "Terjadi kesalahan",
 			"data": gin.H{
 				"error": err.Error(),
 			},
@@ -37,7 +38,7 @@ func (h *TestHandler) getTest(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Test successful",
-		"data":    chatRooms,
+		"data":    messages,
 	})
 }
 

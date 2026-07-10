@@ -7,13 +7,13 @@ type ChatMessage struct {
 
 	ChatID  uint
 	Message string
-	Url     string
+	Url     *string
 
 	ReadAt time.Time
 	SendAt time.Time
 
-	Status       ChatMessageStatus       `gorm:"type:enum('read', 'sent');default:'sent'"`
-	ActionStatus ChatMessageActionStatus `gorm:"type:enum('done', 'pending')"`
+	Status       ChatMessageStatus        `gorm:"type:enum('read', 'sent');default:'sent'"`
+	ActionStatus *ChatMessageActionStatus `gorm:"type:enum('done', 'pending')"`
 	UniqueCode   string
 
 	CreatedAt time.Time

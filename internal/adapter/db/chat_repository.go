@@ -3,7 +3,9 @@ package db
 import (
 	"context"
 	"go-chat/internal/adapter/dto"
+	"go-chat/internal/domain"
 	"go-chat/internal/port"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -54,4 +56,59 @@ func (r *ChatRepository) GetRooms(ctx context.Context, userID string) ([]dto.Cha
 		Error
 
 	return rows, err
+}
+
+func (r *ChatRepository) GetMessages(ctx context.Context, chatRoomID string, offset int) ([]dto.ChatMessagesRow, error) {
+	var rows []dto.ChatMessagesRow
+
+	query := r.db.WithContext(ctx).
+		Table("chat_messages").
+		Select(
+			"chat_messages.id",
+			"chat_messages.chat_id",
+			"chat_messages.message",
+			"chat_messages.url",
+			"chat_messages.status",
+			"chat_messages.action_status",
+			"chat_messages.send_at",
+			"chats.user_id",
+		).
+		Joins("JOIN chats ON chat_messages.chat_id = chats.id").
+		Where("chats.chat_room_id = ?", chatRoomID).
+		Order("chat_messages.send_at DESC").
+		Limit(25).
+		Offset(offset).
+		Find(&rows)
+
+	if query.Error != nil {
+		return nil, query.Error
+	}
+
+	return rows, nil
+}
+
+func (r *ChatRepository) UpdateMessagesAsRead(ctx context.Context, chatRoomID string, userID string) error {
+	tx := r.db.WithContext(ctx).Begin()
+
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// Automatically rollback if the function exits before committing
+	defer tx.Rollback()
+
+	tx.Table("chat_messages").
+		Select("status", "read_at").
+		// Must using subquery, since the update use struct domain
+		Where("chat_id IN (?)", tx.Table("chats").
+			Select("id").
+			Where("chat_room_id = ?", chatRoomID).
+			Where("user_id != ?", userID),
+		).
+		Updates(domain.ChatMessage{
+			Status: domain.StatusRead,
+			ReadAt: time.Now(),
+		})
+
+	return tx.Commit().Error
 }

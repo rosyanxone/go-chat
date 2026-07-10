@@ -3,7 +3,9 @@ package app
 import (
 	"context"
 	"go-chat/internal/adapter/dto"
+	"go-chat/internal/domain"
 	"go-chat/internal/port"
+	"strconv"
 	"time"
 )
 
@@ -76,4 +78,43 @@ func formatLastSendAt(t *time.Time) string {
 
 	// Else
 	return t.Format("02/01/2006") // d/m/Y format
+}
+
+func (s *ChatService) GetAndReadMessages(ctx context.Context, chatRoomID string, userID string, page int) ([]dto.ChatMessageResponse, error) {
+	err := s.repo.UpdateMessagesAsRead(ctx, chatRoomID, userID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	limit := 25
+	offset := (page - 1) * limit
+	rows, err := s.repo.GetMessages(ctx, chatRoomID, offset)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var responses []dto.ChatMessageResponse
+
+	for _, row := range rows {
+		isUser := strconv.FormatUint(uint64(row.UserID), 10) == userID
+		isRead := row.Status == domain.StatusRead
+		date := row.SendAt.Format("2 Jan 2006") // d M Y format
+		time := row.SendAt.Format("15:04")      // H:i format
+
+		responses = append(responses, dto.ChatMessageResponse{
+			ID:           row.ID,
+			Message:      row.Message,
+			Url:          row.Url,
+			Status:       string(row.Status),
+			ActionStatus: (*string)(row.ActionStatus),
+			IsUser:       isUser,
+			IsRead:       isRead,
+			Date:         date,
+			Time:         time,
+		})
+	}
+
+	return responses, nil
 }
