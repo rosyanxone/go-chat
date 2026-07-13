@@ -7,5 +7,6 @@ import (
 
 type NotificationRepository interface {
 	UpdateUserSubscription(ctx context.Context, userID uint, req domain.PushSubscriptionRequest) error
+	GetSubscriptionsByUser(ctx context.Context, userID uint) ([]domain.PushSubscription, error)
 	UserUnsubscribe(ctx context.Context, endpoint string) error
 }

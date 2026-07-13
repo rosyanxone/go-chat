@@ -33,6 +33,9 @@ func main() {
 	dbPort := os.Getenv("DB_PORT")
 	dbName := os.Getenv("DB_NAME")
 	appPort := os.Getenv("APP_PORT")
+	vapidPublicKey := os.Getenv("VAPID_PUBLIC_KEY")
+	vapidPrivateKey := os.Getenv("VAPID_PRIVATE_KEY")
+	vapidSubject := os.Getenv("VAPID_SUBJECT")
 
 	// build DSN
 	dsn := fmt.Sprintf(
@@ -80,7 +83,7 @@ func main() {
 		TestService:         app.NewTestService(client),
 		UserService:         app.NewUserService(userRepo),
 		AuthService:         app.NewAuthService(authRepo),
-		NotificationService: app.NewNotificationService(notificationRepo),
+		NotificationService: app.NewNotificationService(notificationRepo, vapidPublicKey, vapidPrivateKey, vapidSubject),
 		ChatService:         app.NewChatService(chatRepo),
 	}
 

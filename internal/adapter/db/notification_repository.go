@@ -54,6 +54,21 @@ func (r NotificationRepository) UpdateUserSubscription(ctx context.Context, user
 	return tx.Commit().Error
 }
 
+func (r NotificationRepository) GetSubscriptionsByUser(ctx context.Context, userID uint) ([]domain.PushSubscription, error) {
+	var subs []domain.PushSubscription
+
+	err := r.db.WithContext(ctx).
+		Where("subscribeable_type = ? AND subscribeable_id = ?", "App\\Models\\User", userID).
+		Find(&subs).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return subs, nil
+}
+
 func (r NotificationRepository) UserUnsubscribe(ctx context.Context, endpoint string) error {
 	var pushSubs domain.PushSubscription
 
