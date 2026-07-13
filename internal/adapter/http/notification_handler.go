@@ -82,6 +82,7 @@ func (h *NotificationHandler) Subscribe(c *gin.Context) {
 			"message": "Failed to save subscription",
 			"data":    nil,
 		})
+		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
@@ -169,7 +170,9 @@ func (h *NotificationHandler) Notify(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
 			"message": "Failed to send test notification",
-			"data":    nil,
+			"data": gin.H{
+				"error": err.Error(),
+			},
 		})
 		return
 	}

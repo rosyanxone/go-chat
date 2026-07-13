@@ -29,7 +29,7 @@ func (r NotificationRepository) UpdateUserSubscription(ctx context.Context, user
 	defer tx.Rollback()
 
 	// Delete existing subscriptions for this specific user
-	err := tx.Where("subscribeable_type = ? AND subscribeable_ID = ?", "App\\Models\\User", userID).
+	err := tx.Where("subscribable_type = ? AND subscribable_id = ?", "App\\Models\\User", userID).
 		Delete(&domain.PushSubscription{}).
 		Error
 
@@ -38,7 +38,7 @@ func (r NotificationRepository) UpdateUserSubscription(ctx context.Context, user
 	}
 
 	newSub := domain.PushSubscription{
-		SubscribeableID: userID,
+		SubscribableID:  userID,
 		Endpoint:        req.Endpoint,
 		PublicKey:       req.Keys.P256dh,
 		AuthToken:       req.Keys.Auth,
@@ -58,7 +58,7 @@ func (r NotificationRepository) GetSubscriptionsByUser(ctx context.Context, user
 	var subs []domain.PushSubscription
 
 	err := r.db.WithContext(ctx).
-		Where("subscribeable_type = ? AND subscribeable_id = ?", "App\\Models\\User", userID).
+		Where("subscribable_type = ? AND subscribable_id = ?", "App\\Models\\User", userID).
 		Find(&subs).
 		Error
 

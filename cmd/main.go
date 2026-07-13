@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
@@ -91,6 +93,41 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
+	router.Use(cors.New(cors.Config{
+		AllowOrigins: []string{
+			"http://localhost:8000",
+			"http://localhost:8081",
+			"http://localhost:3000",
+			"https://chat.laut-timur.com",
+			"https://notif.laut-timur.com",
+		},
+		AllowMethods: []string{
+			http.MethodGet,
+			http.MethodPost,
+			http.MethodPut,
+			http.MethodPatch,
+			http.MethodDelete,
+			http.MethodOptions,
+		},
+		AllowHeaders: []string{
+			"Origin",
+			"Content-Type",
+			"Accept",
+			"Authorization",
+		},
+		ExposeHeaders: []string{
+			"Content-Length",
+		},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status": "ok",
+		})
+	})
+
 	// NOT using any reverse proxy
 	router.SetTrustedProxies(nil)
 
@@ -101,5 +138,9 @@ func main() {
 	RegisterRoute(api, services)
 
 	log.Printf("API running on http://localhost:%s\n", appPort)
-	router.Run(":" + appPort)
+	err = router.Run(":" + appPort)
+
+	if err != nil {
+		panic(err)
+	}
 }

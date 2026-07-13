@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"go-chat/internal/domain"
 	"go-chat/internal/port"
 	"log"
@@ -62,6 +64,8 @@ func (s *NotificationService) SendToUser(ctx context.Context, userID uint, paylo
 		return err
 	}
 
+	var sendErrs []error
+
 	for _, sub := range subs {
 		resp, err := webpush.SendNotification(message, &webpush.Subscription{
 			Endpoint: sub.Endpoint,
@@ -88,8 +92,16 @@ func (s *NotificationService) SendToUser(ctx context.Context, userID uint, paylo
 			if err != nil {
 				log.Printf("push: failed to clean up dead subscription %s: %v", sub.Endpoint, err)
 			}
+			continue
+		}
+
+		// Anything outside the 200-299 range that isn't a known "gone"
+		// status (e.g. 400/401/403 from bad VAPID keys) still counts as
+		// a failure the caller should know about.
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			sendErrs = append(sendErrs, fmt.Errorf("endpoint %s: push service returned status %d", sub.Endpoint, resp.StatusCode))
 		}
 	}
 
-	return nil
+	return errors.Join(sendErrs...)
 }
