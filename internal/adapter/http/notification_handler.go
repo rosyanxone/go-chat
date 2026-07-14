@@ -1,8 +1,10 @@
 package http
 
 import (
+	"go-chat/internal/adapter/dto"
 	"go-chat/internal/app"
 	"go-chat/internal/domain"
+	"go-chat/internal/shared/convert"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -11,10 +13,18 @@ import (
 type NotificationHandler struct {
 	service     *app.NotificationService
 	authService *app.AuthService
+	userService *app.UserService
+	chatService *app.ChatService
 }
 
-func NewNotificationHandler(rg *gin.RouterGroup, service *app.NotificationService, authService *app.AuthService) {
-	h := &NotificationHandler{service, authService}
+func NewNotificationHandler(
+	rg *gin.RouterGroup,
+	service *app.NotificationService,
+	authService *app.AuthService,
+	userService *app.UserService,
+	chatService *app.ChatService,
+) {
+	h := &NotificationHandler{service, authService, userService, chatService}
 
 	web := rg.Group("/web")
 
@@ -57,7 +67,7 @@ func (h *NotificationHandler) Subscribe(c *gin.Context) {
 
 	user := userData.(*domain.User)
 
-	var req domain.PushSubscriptionRequest
+	var req dto.PushSubscriptionRequest
 
 	err := c.ShouldBindJSON(&req)
 
@@ -143,7 +153,7 @@ func (h *NotificationHandler) Unsubscribe(c *gin.Context) {
 // Handy for confirming the whole pipeline (VAPID keys, subscription,
 // service worker) actually works end to end.
 func (h *NotificationHandler) Notify(c *gin.Context) {
-	userData, exists := c.Get("currentUser")
+	userSenderData, exists := c.Get("currentUser")
 
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -154,32 +164,125 @@ func (h *NotificationHandler) Notify(c *gin.Context) {
 		return
 	}
 
-	user := userData.(*domain.User)
+	userSender := userSenderData.(*domain.User)
 
-	payload := domain.PushPayload{
-		Title: "go-chat-notify",
-		Body:  "This is a test push notification 🎉",
-		Url:   "/",
+	var req dto.NotifyRequest
+
+	err := c.ShouldBindJSON(&req)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "Invalid payload format",
+			"data":    nil,
+		})
+		return
 	}
 
-	err := h.service.SendToUser(c.Request.Context(), user.ID, payload)
+	userTarget, err := h.userService.GetUserByPhoneNumber(c.Request.Context(), req.PhoneNumber)
+
+	if err != nil {
+		c.Error(err)
+
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"status":  "failed",
+				"message": "Nomor hp yang diberikan tidak terdaftar!",
+				"data":    nil,
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Terjadi kesalahan",
+			"data":    nil,
+		})
+		return
+	}
+
+	chat, err := h.chatService.GetChat(c, userSender.ID, userTarget.ID)
 
 	if err != nil {
 		c.Error(err)
 
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
-			"message": "Failed to send test notification",
+			"message": "Failed to get chat data",
 			"data": gin.H{
-				"error": err.Error(),
+				"user_sender_id": userSender.ID,
+				"user_target_id": userTarget.ID,
 			},
 		})
 		return
 	}
 
+	cmd := dto.CreateMessageCommand{
+		ChatID:     chat.ID,
+		Message:    req.Message,
+		Url:        req.Url,
+		UniqueCode: req.Code,
+	}
+
+	h.chatService.CreateNewMessage(c.Request.Context(), cmd)
+
+	roomChatUrl, err := h.chatService.GetRoomChatUrl(c, chat.ID, chat.ChatRoomID)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Failed to get unread total message",
+			"data": gin.H{
+				"error":   err.Error(),
+				"chat_id": chat.ID,
+			},
+		})
+		return
+	}
+
+	payload := dto.PushPayload{
+		Title: userSender.Name,
+		Body:  req.Message,
+		Url:   *roomChatUrl,
+	}
+
+	err = h.service.SendToUser(c.Request.Context(), userTarget.ID, payload)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Message notification failed to sent",
+			"data": gin.H{
+				"error":   err.Error(),
+				"chat_id": chat.ID,
+				"message": req.Message,
+			},
+		})
+		return
+	}
+
+	userNik := convert.NullIfEmpty(userTarget.Employee.UniqueNumber)
+
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
-		"message": "Test notification sent",
-		"data":    nil,
+		"message": "Message successfully sent",
+		"data": gin.H{
+			"chat_id": chat.ID,
+			"message": req.Message,
+			"target_user": dto.UserDataResponse{
+				ID:          userTarget.ID,
+				Name:        userTarget.Name,
+				NIK:         userNik,
+				Email:       userTarget.Email,
+				PhoneNumber: userTarget.PhoneNumber,
+				Role:        userTarget.Roles[0].Name,
+			},
+		},
 	})
 }

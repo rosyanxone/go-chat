@@ -23,6 +23,14 @@ type ChatRoomResponse struct {
 	TotalUnread int    `json:"total_unread"`
 }
 
+// ChatMessage new record form
+type CreateMessageCommand struct {
+	ChatID     uint
+	Message    string
+	Url        *string
+	UniqueCode *string
+}
+
 type ChatMessagesRow struct {
 	domain.ChatMessage
 	UserID uint

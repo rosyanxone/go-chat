@@ -3,10 +3,14 @@ package port
 import (
 	"context"
 	"go-chat/internal/adapter/dto"
+	"go-chat/internal/domain"
 )
 
 type ChatRepository interface {
 	GetRooms(ctx context.Context, userID string) ([]dto.ChatRoomRow, error)
 	GetMessages(ctx context.Context, chatRoomID string, offset int) ([]dto.ChatMessagesRow, error)
+	GetChat(ctx context.Context, senderID string, targetID string) (*domain.Chat, error)
+	GetTotalUnread(ctx context.Context, chatID string) (*uint64, error)
+	CreateNewMessage(ctx context.Context, chatMessage *domain.ChatMessage) error
 	UpdateMessagesAsRead(ctx context.Context, chatRoomID string, userID string) error
 }

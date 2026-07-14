@@ -54,6 +54,7 @@ func (r *UserRepository) FindByPhoneNumber(ctx context.Context, phoneNumber stri
 	result := r.db.WithContext(ctx).
 		Where("phone_number = ?", phoneNumber).
 		Preload("Roles").
+		Preload("Employee").
 		First(&user)
 
 	if result.Error != nil {

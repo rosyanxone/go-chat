@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"go-chat/internal/domain"
+	"go-chat/internal/adapter/dto"
 	"go-chat/internal/port"
 	"log"
 	"net/http"
@@ -29,7 +29,7 @@ func NewNotificationService(r port.NotificationRepository, vapidPublicKey, vapid
 	}
 }
 
-func (s *NotificationService) UpdateUserSubscription(ctx context.Context, userID uint, req domain.PushSubscriptionRequest) error {
+func (s *NotificationService) UpdateUserSubscription(ctx context.Context, userID uint, req dto.PushSubscriptionRequest) error {
 	return s.repo.UpdateUserSubscription(ctx, userID, req)
 }
 
@@ -47,7 +47,7 @@ func (s *NotificationService) VAPIDPublicKey() string {
 // currently subscribed on. It's best-effort: one failing endpoint doesn't
 // stop delivery to the rest. Subscriptions the browser reports as gone
 // (410/404) are deleted automatically so they stop being retried.
-func (s *NotificationService) SendToUser(ctx context.Context, userID uint, payload domain.PushPayload) error {
+func (s *NotificationService) SendToUser(ctx context.Context, userID uint, payload dto.PushPayload) error {
 	subs, err := s.repo.GetSubscriptionsByUser(ctx, userID)
 
 	if err != nil {

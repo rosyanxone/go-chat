@@ -2,9 +2,11 @@ package db
 
 import (
 	"context"
+	"errors"
 	"go-chat/internal/adapter/dto"
 	"go-chat/internal/domain"
 	"go-chat/internal/port"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -87,6 +89,108 @@ func (r *ChatRepository) GetMessages(ctx context.Context, chatRoomID string, off
 	return rows, nil
 }
 
+func (r *ChatRepository) GetChat(ctx context.Context, senderID string, targetID string) (*domain.Chat, error) {
+	var chat domain.Chat
+
+	subQuery := r.db.Table("chats").
+		Select("chat_room_id").
+		Where("user_id IN (?)", []string{senderID, targetID}).
+		Group("chat_room_id").
+		Having("COUNT(DISTINCT user_id) = ?", 2)
+
+	err := r.db.WithContext(ctx).
+		Where("user_id", senderID).
+		Where("chat_room_id IN (?)", subQuery).
+		First(&chat).
+		Error
+
+	if err == nil {
+		return &chat, nil
+	}
+
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	tx := r.db.WithContext(ctx).Begin()
+
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+
+	// Automatically rollback if the function exits before committing
+	defer tx.Rollback()
+
+	chatRoom := domain.ChatRoom{
+		Type: domain.TypePrivate,
+	}
+
+	err = tx.Create(&chatRoom).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	parsedTargetID, err := strconv.ParseUint(targetID, 10, 64)
+
+	if err != nil {
+		return nil, err
+	}
+
+	chat = domain.Chat{
+		ChatRoomID: chatRoom.ID,
+		UserID:     uint(parsedTargetID),
+	}
+
+	err = tx.Create(&chat).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	tx.Commit()
+
+	return &chat, nil
+}
+
+func (r *ChatRepository) GetTotalUnread(ctx context.Context, chatID string) (*uint64, error) {
+	var count int64
+
+	err := r.db.WithContext(ctx).
+		Model(&domain.ChatMessage{}).
+		Where("chat_id = ?", chatID).
+		Where("status = ?", domain.StatusSent).
+		Count(&count).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	finalCount := uint64(count)
+
+	return &finalCount, nil
+}
+
+func (r *ChatRepository) CreateNewMessage(ctx context.Context, chatMessage *domain.ChatMessage) error {
+	tx := r.db.WithContext(ctx).Begin()
+
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// Automatically rollback if the function exits before committing
+	defer tx.Rollback()
+
+	err := tx.Create(&chatMessage).Error
+
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
 func (r *ChatRepository) UpdateMessagesAsRead(ctx context.Context, chatRoomID string, userID string) error {
 	tx := r.db.WithContext(ctx).Begin()
 
@@ -96,6 +200,8 @@ func (r *ChatRepository) UpdateMessagesAsRead(ctx context.Context, chatRoomID st
 
 	// Automatically rollback if the function exits before committing
 	defer tx.Rollback()
+
+	now := time.Now()
 
 	tx.Table("chat_messages").
 		Select("status", "read_at").
@@ -107,7 +213,7 @@ func (r *ChatRepository) UpdateMessagesAsRead(ctx context.Context, chatRoomID st
 		).
 		Updates(domain.ChatMessage{
 			Status: domain.StatusRead,
-			ReadAt: time.Now(),
+			ReadAt: &now,
 		})
 
 	return tx.Commit().Error

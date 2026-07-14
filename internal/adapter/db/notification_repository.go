@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go-chat/internal/adapter/dto"
 	"go-chat/internal/domain"
 	"go-chat/internal/port"
 
@@ -18,7 +19,7 @@ func NewNotificationRepository(db *gorm.DB) port.NotificationRepository {
 	return &NotificationRepository{db: db}
 }
 
-func (r NotificationRepository) UpdateUserSubscription(ctx context.Context, userID uint, req domain.PushSubscriptionRequest) error {
+func (r NotificationRepository) UpdateUserSubscription(ctx context.Context, userID uint, req dto.PushSubscriptionRequest) error {
 	tx := r.db.WithContext(ctx).Begin()
 
 	if tx.Error != nil {

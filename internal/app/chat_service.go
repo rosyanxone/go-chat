@@ -2,9 +2,11 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"go-chat/internal/adapter/dto"
 	"go-chat/internal/domain"
 	"go-chat/internal/port"
+	"go-chat/internal/shared/convert"
 	"strconv"
 	"time"
 )
@@ -117,4 +119,57 @@ func (s *ChatService) GetAndReadMessages(ctx context.Context, chatRoomID string,
 	}
 
 	return responses, nil
+}
+
+func (s *ChatService) GetChat(ctx context.Context, senderID uint, targetID uint) (*domain.Chat, error) {
+	strUserSenderID := convert.UintToString(senderID)
+	strUserTargetID := convert.UintToString(targetID)
+
+	return s.repo.GetChat(ctx, strUserSenderID, strUserTargetID)
+}
+
+func (s *ChatService) GetTotalUnread(ctx context.Context, chatID string) (*uint64, error) {
+	return s.repo.GetTotalUnread(ctx, chatID)
+}
+
+func (s *ChatService) GetRoomChatUrl(ctx context.Context, chatID uint, chatRoomID uint) (*string, error) {
+	strChatID := convert.UintToString(chatID)
+
+	unreadTotal, err := s.repo.GetTotalUnread(ctx, strChatID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	strUnreadTotal := convert.UintToString(uint(*unreadTotal))
+	strChatRoomID := convert.UintToString(chatRoomID)
+
+	url := fmt.Sprintf("/chats/%s?unread=%s", strChatRoomID, strUnreadTotal)
+
+	return &url, nil
+}
+
+func (s *ChatService) CreateNewMessage(ctx context.Context, cmd dto.CreateMessageCommand) error {
+	var actionStatus *string
+	var uniqueCode *string
+
+	if cmd.UniqueCode != nil {
+		uniqueCode = convert.NullIfEmpty(*cmd.UniqueCode)
+	}
+
+	if uniqueCode != nil {
+		actionStatus = convert.StringPtr(string(domain.ActionStatusPending))
+	} else {
+		actionStatus = nil
+	}
+
+	chatMessage := domain.ChatMessage{
+		ChatID:       cmd.ChatID,
+		Message:      cmd.Message,
+		Url:          cmd.Url,
+		UniqueCode:   cmd.UniqueCode,
+		ActionStatus: (*domain.ChatMessageActionStatus)(actionStatus),
+	}
+
+	return s.repo.CreateNewMessage(ctx, &chatMessage)
 }
