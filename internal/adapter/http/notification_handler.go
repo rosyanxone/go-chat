@@ -247,7 +247,18 @@ func (h *NotificationHandler) Notify(c *gin.Context) {
 	payload := dto.PushPayload{
 		Title: userSender.Name,
 		Body:  req.Message,
-		Url:   *roomChatUrl,
+		// Icon: example.logo.com,
+
+		Actions: []dto.PushAction{
+			{
+				Title:  "Buka",
+				Action: "open_url",
+			},
+		},
+
+		Data: dto.PushData{
+			URL: *roomChatUrl,
+		},
 	}
 
 	err = h.service.SendToUser(c.Request.Context(), userTarget.ID, payload)

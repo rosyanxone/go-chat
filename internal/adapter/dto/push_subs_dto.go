@@ -12,11 +12,21 @@ type PushSubscriptionRequest struct {
 
 // PushPayload is the JSON body delivered to the browser's service worker
 // on the "push" event (lookup public/sw.js -> event.data.json()).
+type PushAction struct {
+	Title  string `json:"title"`
+	Action string `json:"action"`
+}
+
+type PushData struct {
+	URL string `json:"url,omitempty"`
+}
+
 type PushPayload struct {
-	Title string `json:"title"`
-	Body  string `json:"body"`
-	Icon  string `json:"icon,omitempty"`
-	Url   string `json:"url,omitempty"`
+	Actions []PushAction `json:"actions"`
+	Title   string       `json:"title"`
+	Body    string       `json:"body"`
+	Icon    string       `json:"icon,omitempty"`
+	Data    PushData     `json:"data"`
 }
 
 type NotifyRequest struct {

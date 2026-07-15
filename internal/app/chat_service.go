@@ -3,12 +3,14 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"time"
+
 	"go-chat/internal/adapter/dto"
 	"go-chat/internal/domain"
 	"go-chat/internal/port"
 	"go-chat/internal/shared/convert"
-	"strconv"
-	"time"
 )
 
 type ChatService struct {
@@ -144,7 +146,9 @@ func (s *ChatService) GetRoomChatUrl(ctx context.Context, chatID uint, chatRoomI
 	strUnreadTotal := convert.UintToString(uint(*unreadTotal))
 	strChatRoomID := convert.UintToString(chatRoomID)
 
-	url := fmt.Sprintf("/chats/%s?unread=%s", strChatRoomID, strUnreadTotal)
+	appDomain := os.Getenv("CHAT_DOMAIN")
+
+	url := fmt.Sprintf("%s/chats/%s?unread=%s", appDomain, strChatRoomID, strUnreadTotal)
 
 	return &url, nil
 }
