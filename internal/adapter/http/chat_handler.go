@@ -3,6 +3,7 @@ package http
 import (
 	"go-chat/internal/app"
 	"go-chat/internal/domain"
+	"go-chat/internal/shared/convert"
 	"net/http"
 	"strconv"
 
@@ -74,8 +75,8 @@ func (h *ChatHandler) getMessages(c *gin.Context) {
 	user := userData.(*domain.User)
 
 	var req struct {
-		ChatRoomID int `json:"chat_room_id" binding:"required"`
-		Page       int `json:"page" binding:"required"`
+		ChatRoomID string `json:"chat_room_id" binding:"required"`
+		Page       string `json:"page"`
 	}
 
 	err := c.ShouldBind(&req)
@@ -91,10 +92,13 @@ func (h *ChatHandler) getMessages(c *gin.Context) {
 		return
 	}
 
-	userID := strconv.FormatUint(uint64(user.ID), 10)
-	chatRoomID := strconv.Itoa(req.ChatRoomID)
+	page := req.Page
 
-	messages, err := h.service.GetAndReadMessages(c, chatRoomID, userID, req.Page)
+	if page == "" {
+		page = "1"
+	}
+
+	messages, err := h.service.GetAndReadMessages(c, req.ChatRoomID, convert.UintToString(user.ID), convert.StringToInt(page))
 
 	if err != nil {
 		c.Error(err)

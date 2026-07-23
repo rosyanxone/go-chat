@@ -36,7 +36,7 @@ type ChatMessagesRow struct {
 	UserID uint
 }
 
-type ChatMessageResponse struct {
+type Message struct {
 	ID           uint    `json:"id"`
 	Message      string  `json:"message"`
 	Url          *string `json:"url"`
@@ -46,4 +46,10 @@ type ChatMessageResponse struct {
 	IsRead       bool    `json:"is_read"`
 	Date         string  `json:"date"`
 	Time         string  `json:"time"`
+}
+
+type ChatMessageResponse struct {
+	Title       string
+	PhoneNumber string
+	Messages    []Message
 }

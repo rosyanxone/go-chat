@@ -84,7 +84,7 @@ func formatLastSendAt(t *time.Time) string {
 	return t.Format("02/01/2006") // d/m/Y format
 }
 
-func (s *ChatService) GetAndReadMessages(ctx context.Context, chatRoomID string, userID string, page int) ([]dto.ChatMessageResponse, error) {
+func (s *ChatService) GetAndReadMessages(ctx context.Context, chatRoomID string, userID string, page int) ([]dto.Message, error) {
 	err := s.repo.UpdateMessagesAsRead(ctx, chatRoomID, userID)
 
 	if err != nil {
@@ -99,7 +99,7 @@ func (s *ChatService) GetAndReadMessages(ctx context.Context, chatRoomID string,
 		return nil, err
 	}
 
-	var responses []dto.ChatMessageResponse
+	var messages []dto.Message
 
 	for _, row := range rows {
 		isUser := strconv.FormatUint(uint64(row.UserID), 10) == userID
@@ -107,7 +107,7 @@ func (s *ChatService) GetAndReadMessages(ctx context.Context, chatRoomID string,
 		date := row.SendAt.Format("2 Jan 2006") // d M Y format
 		time := row.SendAt.Format("15:04")      // H:i format
 
-		responses = append(responses, dto.ChatMessageResponse{
+		messages = append(messages, dto.Message{
 			ID:           row.ID,
 			Message:      row.Message,
 			Url:          row.Url,
@@ -120,7 +120,7 @@ func (s *ChatService) GetAndReadMessages(ctx context.Context, chatRoomID string,
 		})
 	}
 
-	return responses, nil
+	return messages, nil
 }
 
 func (s *ChatService) GetChat(ctx context.Context, senderID uint, targetID uint) (*domain.Chat, error) {

@@ -172,6 +172,25 @@ func (r *ChatRepository) GetTotalUnread(ctx context.Context, chatID string) (*ui
 	return &finalCount, nil
 }
 
+func (r *ChatRepository) GetMemberInfoByChatRoomId(ctx context.Context, userID string, chatRoomID string) (*domain.User, error) {
+	var user domain.User
+
+	err := r.db.WithContext(ctx).
+		Table("chats").
+		Select("users.name", "users.phone_number").
+		Joins("JOIN users ON chats.user_id = users.id").
+		Where("chats.chat_room_id = ?", chatRoomID).
+		Where("users.id != ?", userID).
+		First(&user).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 func (r *ChatRepository) CreateNewMessage(ctx context.Context, chatMessage *domain.ChatMessage) error {
 	tx := r.db.WithContext(ctx).Begin()
 
