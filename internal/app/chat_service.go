@@ -153,6 +153,10 @@ func (s *ChatService) GetRoomChatUrl(ctx context.Context, chatID uint, chatRoomI
 	return &url, nil
 }
 
+func (s *ChatService) GetMemberInfoByChatRoomId(ctx context.Context, userID string, chatRoomID string) (*domain.User, error) {
+	return s.repo.GetMemberInfoByChatRoomId(ctx, userID, chatRoomID)
+}
+
 func (s *ChatService) CreateNewMessage(ctx context.Context, cmd dto.CreateMessageCommand) error {
 	var actionStatus *string
 	var uniqueCode *string

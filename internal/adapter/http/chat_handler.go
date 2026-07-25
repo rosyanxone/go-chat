@@ -76,7 +76,7 @@ func (h *ChatHandler) getMessages(c *gin.Context) {
 
 	var req struct {
 		ChatRoomID string `json:"chat_room_id" binding:"required"`
-		Page       string `json:"page"`
+		Page       int    `json:"page"`
 	}
 
 	err := c.ShouldBind(&req)
@@ -94,19 +94,39 @@ func (h *ChatHandler) getMessages(c *gin.Context) {
 
 	page := req.Page
 
-	if page == "" {
-		page = "1"
-	}
+	// if !page {
+	// 	page = 1
+	// }
 
-	messages, err := h.service.GetAndReadMessages(c, req.ChatRoomID, convert.UintToString(user.ID), convert.StringToInt(page))
+	messages, err := h.service.GetAndReadMessages(c, req.ChatRoomID, convert.UintToString(user.ID), page)
 
 	if err != nil {
 		c.Error(err)
 
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
-			"message": "Terjadi kesalahan",
-			"data":    nil,
+			"message": "Gagal mengambil dan membaca pesan",
+			"data": gin.H{
+				"chat_room_id": req.ChatRoomID,
+				"user_id":      user.ID,
+				"page":         page,
+			},
+		})
+		return
+	}
+
+	userTarget, err := h.service.GetMemberInfoByChatRoomId(c, convert.UintToString(user.ID), req.ChatRoomID)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Gagal mengambil info anggota chat",
+			"data": gin.H{
+				"user_id":      user.ID,
+				"chat_room_id": req.ChatRoomID,
+			},
 		})
 		return
 	}
@@ -114,6 +134,10 @@ func (h *ChatHandler) getMessages(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "User messages successfully retrieved",
-		"data":    messages,
+		"data": gin.H{
+			"title":        userTarget.Name,
+			"phone_number": userTarget.PhoneNumber,
+			"messages":     messages,
+		},
 	})
 }
