@@ -33,6 +33,16 @@ func (s *UserService) UpdateUserName(ctx context.Context, userID string, name st
 	return s.repo.UpdateUserName(ctx, userID, name)
 }
 
+func (s *UserService) UpdateUserPin(ctx context.Context, userID string, pin string) (*domain.User, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(pin), bcrypt.DefaultCost)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	return s.repo.UpdateUserPin(ctx, userID, string(hashedPassword))
+}
+
 func (s *UserService) RegisterNewUser(ctx context.Context, user *domain.User, employee *domain.Employee, roleName string) error {
 	roleID, err := s.repo.GetRoleIDByName(ctx, roleName)
 

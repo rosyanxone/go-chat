@@ -161,3 +161,27 @@ func (r *UserRepository) UpdateUserName(ctx context.Context, userID string, upda
 
 	return &user, tx.Commit().Error
 }
+
+func (r *UserRepository) UpdateUserPin(ctx context.Context, userID string, password string) (*domain.User, error) {
+	tx := r.db.WithContext(ctx).Begin()
+
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+
+	// Automatically rollback if the function exits before committing
+	defer tx.Rollback()
+
+	var user domain.User
+
+	tx.Table("users").
+		Where("id = ?", userID).
+		Preload("Roles").
+		Preload("Employee").
+		Updates(domain.User{
+			Password: password,
+		}).
+		First(&user)
+
+	return &user, tx.Commit().Error
+}

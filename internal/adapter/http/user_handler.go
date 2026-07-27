@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserHandler struct {
@@ -28,6 +29,7 @@ func NewUserHandler(rg *gin.RouterGroup, service *app.UserService, authService *
 		user := protected.Group("/user")
 
 		user.POST("/update", h.updateUserName)
+		user.POST("/update/pin", h.updateUserPin)
 	}
 }
 
@@ -137,6 +139,106 @@ func (h *UserHandler) updateUserName(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"status":  "failed",
 		"message": "User name updated successfully",
+		"data": gin.H{
+			"user": dto.UserDataResponse{
+				ID:          userResult.ID,
+				Name:        userResult.Name,
+				NIK:         userNik,
+				Email:       userResult.Email,
+				PhoneNumber: userResult.PhoneNumber,
+				Role:        userResult.Roles[0].Name,
+			},
+		},
+	})
+}
+
+func (h *UserHandler) updateUserPin(c *gin.Context) {
+	user, exists := c.Get("currentUser")
+
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Gagal mengambil data user",
+			"data":    nil,
+		})
+		return
+	}
+
+	userData := user.(*domain.User)
+
+	var req struct {
+		OldPin          string `json:"old_pin" binding:"required"`
+		Pin             string `json:"pin" binding:"required"`
+		PinConfirmation string `json:"pin_confirmation" binding:"required"`
+	}
+
+	err := c.ShouldBind(&req)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "Request payload harus terpenuhi!",
+			"data":    nil,
+		})
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword(
+		[]byte(userData.Password),
+		[]byte(req.OldPin),
+	)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "failed",
+			"message": "Pin lama yang diberikan salah!",
+			"data":    nil,
+		})
+		return
+	}
+
+	if len(req.Pin) < 6 || len(req.Pin) > 6 {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"status":  "failed",
+			"message": "Pin harus terdiri dari 6 digit!",
+			"data":    nil,
+		})
+		return
+	}
+
+	if req.Pin != req.PinConfirmation {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"status":  "failed",
+			"message": "Konfirmasi pin baru tidak sesuai!",
+			"data":    nil,
+		})
+		return
+	}
+
+	userResult, err := h.service.UpdateUserPin(c, convert.UintToString(userData.ID), req.Pin)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Request payload harus terpenuhi!",
+			"data": gin.H{
+				"user_id": userData.ID,
+				"name":    req.Pin,
+			},
+		})
+	}
+
+	userNik := convert.NullIfEmpty(userResult.Employee.UniqueNumber)
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  "failed",
+		"message": "User pin updated successfully",
 		"data": gin.H{
 			"user": dto.UserDataResponse{
 				ID:          userResult.ID,
