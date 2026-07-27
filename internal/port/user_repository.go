@@ -11,4 +11,5 @@ type UserRepository interface {
 	FindByPhoneNumber(ctx context.Context, phoneNumber string) (*domain.User, error)
 	GetRoleIDByName(ctx context.Context, roleName string) (uint, error)
 	CreateUser(ctx context.Context, user *domain.User, employee *domain.Employee, roleID uint) error
+	UpdateUserName(ctx context.Context, userID string, updatedName string) (*domain.User, error)
 }

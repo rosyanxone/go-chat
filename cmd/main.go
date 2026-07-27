@@ -62,7 +62,7 @@ func main() {
 	// Configure the underlying connection pool
 	sqlDB, err := conn.DB()
 	if err != nil {
-		log.Fatal("failed to get underlying database: %w", err)
+		log.Fatalf("failed to get underlying database: %s", err)
 		return
 	}
 
@@ -98,6 +98,11 @@ func main() {
 			"http://localhost:8000",
 			"http://localhost:8081",
 			"http://localhost:3000",
+
+			"http://127.0.0.1:8000",
+			"http://127.0.0.1:8081",
+			"http://127.0.0.1:3000",
+
 			"https://chat.laut-timur.com",
 			"https://notif.laut-timur.com",
 		},
@@ -129,7 +134,7 @@ func main() {
 	})
 
 	// NOT using any reverse proxy
-	router.SetTrustedProxies(nil)
+	// router.SetTrustedProxies(nil)
 
 	// Create the base /api group by Gin
 	api := router.Group("/api")

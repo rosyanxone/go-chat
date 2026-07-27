@@ -1,7 +1,10 @@
 package http
 
 import (
+	"go-chat/internal/adapter/dto"
 	"go-chat/internal/app"
+	"go-chat/internal/domain"
+	"go-chat/internal/shared/convert"
 	"log"
 	"net/http"
 
@@ -9,14 +12,23 @@ import (
 )
 
 type UserHandler struct {
-	service *app.UserService
+	service     *app.UserService
+	authService *app.AuthService
 }
 
-func NewUserHandler(rg *gin.RouterGroup, service *app.UserService) {
+func NewUserHandler(rg *gin.RouterGroup, service *app.UserService, authService *app.AuthService) {
 	h := &UserHandler{service: service}
 
 	rg.GET("/users", h.getUsers)
 	rg.GET("/user/email", h.getUserByEmail)
+
+	protected := rg.Group("/")
+	protected.Use(AuthMiddleware(authService))
+	{
+		user := protected.Group("/user")
+
+		user.POST("/update", h.updateUserName)
+	}
 }
 
 func (h *UserHandler) getUsers(c *gin.Context) {
@@ -71,5 +83,69 @@ func (h *UserHandler) getUserByEmail(c *gin.Context) {
 		"status":  "success",
 		"message": "Test successful",
 		"data":    data,
+	})
+}
+
+func (h *UserHandler) updateUserName(c *gin.Context) {
+	user, exists := c.Get("currentUser")
+
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Gagal mengambil data user",
+			"data":    nil,
+		})
+		return
+	}
+
+	userData := user.(*domain.User)
+
+	var req struct {
+		Name string `json:"name" binding:"required"`
+	}
+
+	err := c.ShouldBind(&req)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "Request payload harus terpenuhi!",
+			"data":    nil,
+		})
+		return
+	}
+
+	userResult, err := h.service.UpdateUserName(c, convert.UintToString(userData.ID), req.Name)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Request payload harus terpenuhi!",
+			"data": gin.H{
+				"user_id": userData.ID,
+				"name":    req.Name,
+			},
+		})
+	}
+
+	userNik := convert.NullIfEmpty(userResult.Employee.UniqueNumber)
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  "failed",
+		"message": "User name updated successfully",
+		"data": gin.H{
+			"user": dto.UserDataResponse{
+				ID:          userResult.ID,
+				Name:        userResult.Name,
+				NIK:         userNik,
+				Email:       userResult.Email,
+				PhoneNumber: userResult.PhoneNumber,
+				Role:        userResult.Roles[0].Name,
+			},
+		},
 	})
 }

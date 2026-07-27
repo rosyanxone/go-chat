@@ -29,6 +29,10 @@ func (s *UserService) GetUserByPhoneNumber(ctx context.Context, phoneNumber stri
 	return s.repo.FindByPhoneNumber(ctx, phoneNumber)
 }
 
+func (s *UserService) UpdateUserName(ctx context.Context, userID string, name string) (*domain.User, error) {
+	return s.repo.UpdateUserName(ctx, userID, name)
+}
+
 func (s *UserService) RegisterNewUser(ctx context.Context, user *domain.User, employee *domain.Employee, roleName string) error {
 	roleID, err := s.repo.GetRoleIDByName(ctx, roleName)
 
