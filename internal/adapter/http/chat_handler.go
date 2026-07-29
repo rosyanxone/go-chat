@@ -40,7 +40,9 @@ func (h *ChatHandler) getRooms(c *gin.Context) {
 
 	user := userData.(*domain.User)
 
-	chatRooms, err := h.service.GetRooms(c, strconv.FormatUint(uint64(user.ID), 10))
+	page := c.Query("page")
+
+	chatRooms, err := h.service.GetRooms(c, strconv.FormatUint(uint64(user.ID), 10), convert.StringToInt(page))
 
 	if err != nil {
 		c.Error(err)
@@ -92,13 +94,7 @@ func (h *ChatHandler) getMessages(c *gin.Context) {
 		return
 	}
 
-	page := req.Page
-
-	// if !page {
-	// 	page = 1
-	// }
-
-	messages, err := h.service.GetAndReadMessages(c, req.ChatRoomID, convert.UintToString(user.ID), page)
+	messages, err := h.service.GetAndReadMessages(c, req.ChatRoomID, convert.UintToString(user.ID), req.Page)
 
 	if err != nil {
 		c.Error(err)
@@ -109,7 +105,7 @@ func (h *ChatHandler) getMessages(c *gin.Context) {
 			"data": gin.H{
 				"chat_room_id": req.ChatRoomID,
 				"user_id":      user.ID,
-				"page":         page,
+				"page":         req.Page,
 			},
 		})
 		return

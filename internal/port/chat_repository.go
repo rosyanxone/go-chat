@@ -7,7 +7,7 @@ import (
 )
 
 type ChatRepository interface {
-	GetRooms(ctx context.Context, userID string) ([]dto.ChatRoomRow, error)
+	GetRooms(ctx context.Context, userID string, offset int) ([]dto.ChatRoomRow, error)
 	GetMessages(ctx context.Context, chatRoomID string, offset int) ([]dto.ChatMessagesRow, error)
 	GetChat(ctx context.Context, senderID string, targetID string) (*domain.Chat, error)
 	GetTotalUnread(ctx context.Context, chatID string) (*uint64, error)

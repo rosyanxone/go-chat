@@ -21,11 +21,11 @@ func NewChatService(r port.ChatRepository) *ChatService {
 	return &ChatService{repo: r}
 }
 
-func (s *ChatService) GetRooms(ctx context.Context, userID string) ([]dto.ChatRoomResponse, error) {
-	// limit := 10
-	// offset := (page - 1) * limit
+func (s *ChatService) GetRooms(ctx context.Context, userID string, page int) ([]dto.ChatRoomResponse, error) {
+	limit := 15
+	offset := (page - 1) * limit
 
-	rows, err := s.repo.GetRooms(ctx, userID)
+	rows, err := s.repo.GetRooms(ctx, userID, offset)
 
 	if err != nil {
 		return nil, err

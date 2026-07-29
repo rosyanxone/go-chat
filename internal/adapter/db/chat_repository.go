@@ -20,7 +20,7 @@ func NewChatRepository(db *gorm.DB) port.ChatRepository {
 	return &ChatRepository{db}
 }
 
-func (r *ChatRepository) GetRooms(ctx context.Context, userID string) ([]dto.ChatRoomRow, error) {
+func (r *ChatRepository) GetRooms(ctx context.Context, userID string, offset int) ([]dto.ChatRoomRow, error) {
 	var rows []dto.ChatRoomRow
 
 	selectQuery := `
@@ -54,6 +54,8 @@ func (r *ChatRepository) GetRooms(ctx context.Context, userID string) ([]dto.Cha
 		Where("EXISTS (SELECT 1 FROM chats WHERE chats.chat_room_id = chat_rooms.id AND chats.user_id = ?)", userID).
 		Where("EXISTS (SELECT 1 FROM chat_messages JOIN chats ON chats.id = chat_messages.chat_id WHERE chats.chat_room_id = chat_rooms.id)").
 		Order("last_send_at DESC").
+		Limit(15).
+		Offset(offset).
 		Find(&rows).
 		Error
 
@@ -224,18 +226,23 @@ func (r *ChatRepository) UpdateMessagesAsRead(ctx context.Context, chatRoomID st
 
 	now := time.Now()
 
-	tx.Table("chat_messages").
-		Select("status", "read_at").
-		// Must using subquery, since the update use struct domain
-		Where("chat_id IN (?)", tx.Table("chats").
-			Select("id").
-			Where("chat_room_id = ?", chatRoomID).
-			Where("user_id != ?", userID),
-		).
+	chatsId := tx.Table("chats").
+		Select("id").
+		Where("chat_room_id = ?", chatRoomID).
+		Where("user_id != ?", userID)
+
+	err := tx.Model(&domain.ChatMessage{}).
+		Where("chat_id IN (?)", chatsId).
+		Where("read_at IS NULL").
 		Updates(domain.ChatMessage{
 			Status: domain.StatusRead,
 			ReadAt: &now,
-		})
+		}).
+		Error
+
+	if err != nil {
+		return err
+	}
 
 	return tx.Commit().Error
 }
