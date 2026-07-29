@@ -137,7 +137,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			"message": "Nomor hp atau pin Anda salah!",
 			"data":    nil,
 		})
-
 		return
 	}
 
@@ -158,18 +157,20 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"status":  "success",
 		"message": "login berhasil",
 		"data": gin.H{
-			"id":           user.ID,
-			"name":         user.Name,
-			"phone_number": user.PhoneNumber,
-			"token":        plainTextToken,
-			"role":         user.Roles[0].Name,
+			"user": gin.H{
+				"id":           user.ID,
+				"name":         user.Name,
+				"phone_number": user.PhoneNumber,
+			},
+			"token": plainTextToken,
+			"role":  user.Roles[0].Name,
 		},
 	})
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
 	var req struct {
-		UserID string `json:"user_id" binding:"required"`
+		UserID int `json:"user_id" binding:"required"`
 	}
 
 	err := c.ShouldBind(&req)

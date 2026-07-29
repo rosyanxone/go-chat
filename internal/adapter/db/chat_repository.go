@@ -63,27 +63,29 @@ func (r *ChatRepository) GetRooms(ctx context.Context, userID string) ([]dto.Cha
 func (r *ChatRepository) GetMessages(ctx context.Context, chatRoomID string, offset int) ([]dto.ChatMessagesRow, error) {
 	var rows []dto.ChatMessagesRow
 
-	query := r.db.WithContext(ctx).
-		Table("chat_messages").
+	err := r.db.WithContext(ctx).
+		Table("chat_messages AS cm").
 		Select(
-			"chat_messages.id",
-			"chat_messages.chat_id",
-			"chat_messages.message",
-			"chat_messages.url",
-			"chat_messages.status",
-			"chat_messages.action_status",
-			"chat_messages.send_at",
-			"chats.user_id",
+			"cm.id",
+			"cm.chat_id",
+			"cm.message",
+			"cm.url",
+			"cm.status",
+			"cm.action_status",
+			"cm.send_at",
+			"c.user_id",
 		).
-		Joins("JOIN chats ON chat_messages.chat_id = chats.id").
-		Where("chats.chat_room_id = ?", chatRoomID).
-		Order("chat_messages.send_at DESC").
+		Joins("JOIN chats AS c ON c.id = cm.chat_id").
+		Where("c.chat_room_id = ?", chatRoomID).
+		Order("cm.send_at DESC").
+		Order("cm.id DESC").
 		Limit(25).
 		Offset(offset).
-		Find(&rows)
+		Find(&rows).
+		Error
 
-	if query.Error != nil {
-		return nil, query.Error
+	if err != nil {
+		return nil, err
 	}
 
 	return rows, nil

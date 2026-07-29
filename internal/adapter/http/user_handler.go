@@ -126,7 +126,7 @@ func (h *UserHandler) updateUserName(c *gin.Context) {
 
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
-			"message": "Request payload harus terpenuhi!",
+			"message": "Gagal memperbarui data user",
 			"data": gin.H{
 				"user_id": userData.ID,
 				"name":    req.Name,
@@ -179,7 +179,7 @@ func (h *UserHandler) updateUserPin(c *gin.Context) {
 
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
-			"message": "Request payload harus terpenuhi!",
+			"message": "Semua kolom wajib diisi!",
 			"data":    nil,
 		})
 		return
@@ -193,7 +193,7 @@ func (h *UserHandler) updateUserPin(c *gin.Context) {
 	if err != nil {
 		c.Error(err)
 
-		c.JSON(http.StatusUnauthorized, gin.H{
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
 			"status":  "failed",
 			"message": "Pin lama yang diberikan salah!",
 			"data":    nil,
