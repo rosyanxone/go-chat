@@ -30,7 +30,7 @@ func (r NotificationRepository) UpdateUserSubscription(ctx context.Context, user
 	defer tx.Rollback()
 
 	// Delete existing subscriptions for this specific user
-	err := tx.Where("subscribable_type = ? AND subscribable_id = ?", "App\\Models\\User", userID).
+	err := tx.Where("endpoint = ? OR (subscribable_type = ? AND subscribable_id = ?)", req.Endpoint, "App\\Models\\User", userID).
 		Delete(&domain.PushSubscription{}).
 		Error
 

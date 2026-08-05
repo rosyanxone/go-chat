@@ -6,7 +6,7 @@ import (
 	"go-chat/internal/adapter/dto"
 	"go-chat/internal/domain"
 	"go-chat/internal/port"
-	"strconv"
+	"go-chat/internal/shared/convert"
 	"time"
 
 	"gorm.io/gorm"
@@ -135,26 +135,34 @@ func (r *ChatRepository) GetChat(ctx context.Context, senderID string, targetID 
 		return nil, err
 	}
 
-	parsedTargetID, err := strconv.ParseUint(targetID, 10, 64)
+	usersID := make([]uint, 0, 2)
 
-	if err != nil {
+	for _, id := range []string{targetID, senderID} {
+		parsedID := convert.StringToInt(id)
+
+		usersID = append(usersID, uint(parsedID))
+	}
+
+	chats := []domain.Chat{
+		{
+			ChatRoomID: chatRoom.ID,
+			UserID:     usersID[0],
+		},
+		{
+			ChatRoomID: chatRoom.ID,
+			UserID:     usersID[1],
+		},
+	}
+
+	if err := tx.Create(&chats).Error; err != nil {
 		return nil, err
 	}
 
-	chat = domain.Chat{
-		ChatRoomID: chatRoom.ID,
-		UserID:     uint(parsedTargetID),
-	}
-
-	err = tx.Create(&chat).Error
-
-	if err != nil {
+	if err := tx.Commit().Error; err != nil {
 		return nil, err
 	}
 
-	tx.Commit()
-
-	return &chat, nil
+	return &chats[0], nil // index 0 is targeted user chat
 }
 
 func (r *ChatRepository) GetTotalUnread(ctx context.Context, chatID string) (*uint64, error) {
