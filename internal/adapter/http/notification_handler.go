@@ -203,6 +203,18 @@ func (h *NotificationHandler) Notify(c *gin.Context) {
 		return
 	}
 
+	if userSender.ID == userTarget.ID {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"status":  "failed",
+			"message": "Nomor hp yang diberikan identikal",
+			"data": gin.H{
+				"user_sender": userSender.PhoneNumber,
+				"user_target": userTarget.PhoneNumber,
+			},
+		})
+		return
+	}
+
 	chat, err := h.chatService.GetChat(c, userSender.ID, userTarget.ID)
 
 	if err != nil {

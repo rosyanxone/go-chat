@@ -21,5 +21,5 @@ func RegisterRoute(api *gin.RouterGroup, services Services) {
 	http.NewUserHandler(api, services.UserService, services.AuthService)
 	http.NewAuthHandler(api, services.UserService, services.AuthService)
 	http.NewNotificationHandler(api, services.NotificationService, services.AuthService, services.UserService, services.ChatService)
-	http.NewChatHandler(api, services.ChatService, services.AuthService)
+	http.NewChatHandler(api, services.ChatService, services.AuthService, services.UserService, services.NotificationService)
 }
