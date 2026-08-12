@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"go-chat/internal/app"
 	"go-chat/internal/domain"
 	"net/http"
@@ -20,6 +21,7 @@ func NewAuthHandler(rg *gin.RouterGroup, userService *app.UserService, authServi
 	rg.POST("/validate/phone-number", h.ValidatePhoneNumber)
 	rg.POST("/login", h.Login)
 	rg.POST("/register", h.Register)
+	rg.POST("/register/employee", h.RegisterEmployee)
 
 	protected := rg.Group("/")
 	protected.Use(AuthMiddleware(authService))
@@ -40,19 +42,22 @@ func (h *AuthHandler) ValidatePhoneNumber(c *gin.Context) {
 		PhoneNumber string `json:"phone_number" binding:"required"`
 	}
 
-	if err := c.ShouldBind(&req); err != nil {
-		// log.Println("Req Error:", err.Error())
+	err := c.ShouldBind(&req)
+
+	if err != nil {
 		c.Error(err)
 
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"message": "Nomor hp harus diisi!",
-			"data":    nil,
+			"data": gin.H{
+				"error": err.Error(),
+			},
 		})
 		return
 	}
 
-	_, err := h.userService.GetUserByPhoneNumber(c.Request.Context(), req.PhoneNumber)
+	_, err = h.userService.GetUserByPhoneNumber(c.Request.Context(), req.PhoneNumber)
 
 	if err != nil {
 		// log.Println("DB Error:", err.Error())
@@ -97,7 +102,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"message": "Request payload tidak valid",
-			"data":    nil,
+			"data": gin.H{
+				"error": err.Error(),
+			},
 		})
 		return
 	}
@@ -181,7 +188,9 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"message": "Payload user_id required!",
-			"data":    nil,
+			"data": gin.H{
+				"error": err.Error(),
+			},
 		})
 		return
 	}
@@ -217,7 +226,9 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Password    string  `json:"password" binding:"required"`
 	}
 
-	if err := c.ShouldBind(&req); err != nil {
+	err := c.ShouldBind(&req)
+
+	if err != nil {
 		c.Error(err)
 
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -274,7 +285,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		}
 	}
 
-	err := h.userService.RegisterNewUser(c, &newUser, &newEmployee, req.Role)
+	err = h.userService.RegisterNewUser(c, &newUser, &newEmployee, req.Role)
 
 	if err != nil {
 		c.Error(err)
@@ -307,8 +318,99 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			"id":           newUser.ID,
 			"name":         newUser.Name,
 			"phone_number": newUser.PhoneNumber,
+			"nik":          newUser.Employee.UniqueNumber,
 			"role":         newUser.Roles[0].Name,
 			"token":        plainTextToken,
+		},
+	})
+}
+
+func (h *AuthHandler) RegisterEmployee(c *gin.Context) {
+	var req struct {
+		Name        string `json:"name" binding:"required"`
+		Email       string `json:"email" binding:"required,email"`
+		PhoneNumber string `json:"phone_number" binding:"required"`
+		NIK         string `json:"nik" binding:"required"`
+	}
+
+	err := c.ShouldBind(&req)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "Request payload harus terpenuhi!",
+			"data": gin.H{
+				"error": err.Error(),
+			},
+		})
+		return
+	}
+
+	user, _ := h.userService.GetUserByPhoneNumber(c.Request.Context(), req.PhoneNumber)
+
+	if user != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"status":  "failed",
+			"message": "Nomor hp telah didaftarkan!",
+			"data":    nil,
+		})
+		return
+	}
+
+	user, _ = h.userService.GetUserByEmail(c.Request.Context(), req.Email)
+
+	if user != nil {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"status":  "failed",
+			"message": "Email telah didaftarkan!",
+			"data":    nil,
+		})
+		return
+	}
+
+	nik := req.NIK
+	phoneNumber := req.PhoneNumber
+
+	password := fmt.Sprintf("%s%s", nik[len(nik)-3:], phoneNumber[len(phoneNumber)-3:])
+
+	newUser := domain.User{
+		PhoneNumber: req.PhoneNumber,
+		Name:        req.Name,
+		Email:       req.Email,
+		Password:    password,
+	}
+
+	var newEmployee domain.Employee
+
+	newEmployee = domain.Employee{
+		UniqueNumber: req.NIK,
+	}
+
+	err = h.userService.RegisterNewUser(c, &newUser, &newEmployee, "employee")
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Terjadi kesalahan",
+			"data":    nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  "success",
+		"message": "User berhasil dibuat",
+		"data": gin.H{
+			"id":           newUser.ID,
+			"name":         newUser.Name,
+			"email":        newUser.Email,
+			"phone_number": newUser.PhoneNumber,
+			"nik":          newUser.Employee.UniqueNumber,
+			"role":         newUser.Roles[0].Name,
 		},
 	})
 }
@@ -338,6 +440,7 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 			"name":         user.Name,
 			"email":        user.Email,
 			"phone_number": user.PhoneNumber,
+			"nik":          user.Employee.UniqueNumber,
 			"role":         user.Roles[0].Name,
 			"updated_at":   user.UpdatedAt,
 		},
