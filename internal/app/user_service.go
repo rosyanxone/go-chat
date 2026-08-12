@@ -43,6 +43,10 @@ func (s *UserService) UpdateUserPin(ctx context.Context, userID string, pin stri
 	return s.repo.UpdateUserPin(ctx, userID, string(hashedPassword))
 }
 
+func (s *UserService) UpdateUserData(ctx context.Context, nik string, email *string, phoneNumber *string) error {
+	return s.repo.UpdateUserData(ctx, nik, email, phoneNumber)
+}
+
 func (s *UserService) RegisterNewUser(ctx context.Context, user *domain.User, employee *domain.Employee, roleName string) error {
 	roleID, err := s.repo.GetRoleIDByName(ctx, roleName)
 

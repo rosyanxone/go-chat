@@ -28,8 +28,14 @@ func NewUserHandler(rg *gin.RouterGroup, service *app.UserService, authService *
 	{
 		user := protected.Group("/user")
 
-		user.POST("/update", h.updateUserName)
+		user.POST("/update/name", h.updateUserName)
 		user.POST("/update/pin", h.updateUserPin)
+
+		special := user.Group("/")
+		special.Use(RequireRole("admin", "root"))
+		{
+			special.POST("/update/data", h.updateUserData)
+		}
 	}
 }
 
@@ -249,5 +255,65 @@ func (h *UserHandler) updateUserPin(c *gin.Context) {
 				Role:        userResult.Roles[0].Name,
 			},
 		},
+	})
+}
+
+func (h *UserHandler) updateUserData(c *gin.Context) {
+	var req struct {
+		NIK         string  `json:"nik" binding:"required"`
+		Email       *string `json:"email"`
+		PhoneNumber *string `json:"phone_number"`
+	}
+
+	err := c.ShouldBind(&req)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "Request payload harus terpenuhi!",
+			"data": gin.H{
+				"error": err.Error(),
+			},
+		})
+		return
+	}
+
+	err = h.service.UpdateUserData(c, req.NIK, req.Email, req.PhoneNumber)
+
+	if err != nil {
+		c.Error(err)
+
+		if err.Error() == "no_data" {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"status":  "failed",
+				"message": "Tidak ada data yang diperbarui",
+				"data":    nil,
+			})
+			return
+		}
+
+		if err.Error() == "record not found" {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"status":  "failed",
+				"message": "NIK user tidak ditemukan",
+				"data":    nil,
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Gagal memperbarui data user",
+			"data":    nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Berhasil memperbarui data user",
+		"data":    nil,
 	})
 }

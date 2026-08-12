@@ -185,3 +185,55 @@ func (r *UserRepository) UpdateUserPin(ctx context.Context, userID string, passw
 
 	return &user, tx.Commit().Error
 }
+
+func (r *UserRepository) UpdateUserData(ctx context.Context, nik string, email *string, phoneNumber *string) error {
+	tx := r.db.WithContext(ctx).Begin()
+
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// Automatically rollback if the function exits before committing
+	defer tx.Rollback()
+
+	var employee domain.Employee
+
+	err := tx.Table("employees").
+		Select("user_id").
+		Where("unique_number = ?", nik).
+		First(&employee).
+		Error
+
+	if err != nil {
+		return err
+	}
+
+	updates := map[string]interface{}{}
+
+	if email != nil {
+		updates["email"] = *email
+	}
+
+	if phoneNumber != nil {
+		updates["phone_number"] = *phoneNumber
+	}
+
+	// Nothing to update
+	if len(updates) == 0 {
+		return errors.New("no_data")
+	}
+
+	result := tx.Model(&domain.User{}).
+		Where("id = ?", employee.UserID).
+		Updates(updates)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+
+	return tx.Commit().Error
+}

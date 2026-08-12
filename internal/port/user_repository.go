@@ -13,4 +13,5 @@ type UserRepository interface {
 	CreateUser(ctx context.Context, user *domain.User, employee *domain.Employee, roleID uint) error
 	UpdateUserName(ctx context.Context, userID string, updatedName string) (*domain.User, error)
 	UpdateUserPin(ctx context.Context, userID string, password string) (*domain.User, error)
+	UpdateUserData(ctx context.Context, nik string, email *string, phoneNumber *string) error
 }
