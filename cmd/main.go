@@ -1,15 +1,20 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -20,12 +25,30 @@ import (
 	"go-chat/internal/domain"
 )
 
+var (
+	ctx                = context.Background()
+	channelNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{3,64}$`)
+	rdb                = redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
+	upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+)
+
 func main() {
 	log.Println("Go running...")
 
 	// load .env
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment")
+		log.Fatal("No .env file found, using system environment")
+	}
+
+	// connect to redis
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Print("Failed to connect to Redis:", err)
 	}
 
 	// store env vars
@@ -133,6 +156,9 @@ func main() {
 		})
 	})
 
+	// assign websocket
+	router.GET("/ws/:channel", handleWebSocket)
+
 	// NOT using any reverse proxy
 	// router.SetTrustedProxies(nil)
 
@@ -147,5 +173,67 @@ func main() {
 
 	if err != nil {
 		panic(err)
+	}
+}
+
+func handleWebSocket(c *gin.Context) {
+	channel := c.Param("channel")
+	if !channelNamePattern.MatchString(channel) {
+		log.Printf("Error: %s", errors.New("invalid channel"))
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid channel"})
+		return
+	}
+
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer conn.Close()
+
+	sub := rdb.Subscribe(ctx, channel)
+	defer sub.Close()
+	ch := sub.Channel()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			_, msg, err := conn.ReadMessage()
+
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+					log.Println("Read error:", err)
+				}
+				return
+			}
+
+			err = rdb.Publish(ctx, channel, string(msg)).Err()
+
+			if err != nil {
+				log.Println("Publish error:", err)
+				return
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-done:
+			return
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
+
+			err := conn.WriteMessage(websocket.TextMessage, []byte(msg.Payload))
+
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+					log.Println("Write error:", err)
+				}
+				return
+			}
+		}
 	}
 }
