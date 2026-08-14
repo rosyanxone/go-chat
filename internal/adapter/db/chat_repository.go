@@ -189,7 +189,7 @@ func (r *ChatRepository) GetMemberInfoByChatRoomId(ctx context.Context, userID s
 
 	err := r.db.WithContext(ctx).
 		Table("chats").
-		Select("users.name", "users.phone_number").
+		Select("users.id", "users.name", "users.phone_number").
 		Joins("JOIN users ON chats.user_id = users.id").
 		Where("chats.chat_room_id = ?", chatRoomID).
 		Where("users.id != ?", userID).

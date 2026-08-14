@@ -81,8 +81,8 @@ func (h *ChatHandler) GetMessages(c *gin.Context) {
 	user := userData.(*domain.User)
 
 	var req struct {
-		ChatRoomID string `json:"chat_room_id" binding:"required"`
-		Page       int    `json:"page"`
+		ChatRoomID int `json:"chat_room_id" binding:"required"`
+		Page       int `json:"page"`
 	}
 
 	err := c.ShouldBind(&req)
@@ -93,12 +93,16 @@ func (h *ChatHandler) GetMessages(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  "failed",
 			"message": "Request payload harus terpenuhi!",
-			"data":    nil,
+			"data": gin.H{
+				"error": err.Error(),
+			},
 		})
 		return
 	}
 
-	messages, err := h.service.GetAndReadMessages(c, req.ChatRoomID, convert.UintToString(user.ID), req.Page)
+	chatRoomID := convert.IntToString(req.ChatRoomID)
+
+	messages, err := h.service.GetAndReadMessages(c, chatRoomID, convert.UintToString(user.ID), req.Page)
 
 	if err != nil {
 		c.Error(err)
@@ -115,7 +119,7 @@ func (h *ChatHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
-	userTarget, err := h.service.GetMemberInfoByChatRoomId(c, convert.UintToString(user.ID), req.ChatRoomID)
+	userTarget, err := h.service.GetMemberInfoByChatRoomId(c, convert.UintToString(user.ID), chatRoomID)
 
 	if err != nil {
 		c.Error(err)
@@ -135,6 +139,7 @@ func (h *ChatHandler) GetMessages(c *gin.Context) {
 		"status":  "success",
 		"message": "User messages successfully retrieved",
 		"data": gin.H{
+			"id":           userTarget.ID,
 			"title":        userTarget.Name,
 			"phone_number": userTarget.PhoneNumber,
 			"messages":     messages,
