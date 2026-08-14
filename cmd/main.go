@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -162,7 +161,8 @@ func main() {
 	})
 
 	// assign websocket
-	router.GET("/ws/:channel", handleWebSocket)
+	// router.GET("/ws/:channel", handleWebSocket)
+	router.GET("/ws/chat", handleWebSocket)
 
 	// NOT using any reverse proxy
 	// router.SetTrustedProxies(nil)
@@ -181,62 +181,110 @@ func main() {
 	}
 }
 
-func handleWebSocket(c *gin.Context) {
-	channel := c.Param("channel")
-	if !channelNamePattern.MatchString(channel) {
-		log.Printf("Error: %s", errors.New("invalid channel"))
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid channel"})
-		return
-	}
+type WebSocketRequest struct {
+	Event   string `json:"event"`
+	Channel string `json:"channel"`
+}
 
+func handleWebSocket(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Println(err)
+		log.Println("WebSocket upgrade error:", err)
 		return
 	}
 	defer conn.Close()
 
-	sub := rdb.Subscribe(ctx, channel)
-	defer sub.Close()
-	ch := sub.Channel()
+	// One Redis PubSub for this websocket connection.
+	pubsub := rdb.Subscribe(ctx)
+	defer pubsub.Close()
+
+	redisChannel := pubsub.Channel()
 
 	done := make(chan struct{})
+
+	// Read messages coming FROM frontend.
 	go func() {
 		defer close(done)
-		for {
-			_, msg, err := conn.ReadMessage()
 
+		for {
+			var request WebSocketRequest
+
+			err := conn.ReadJSON(&request)
 			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-					log.Println("Read error:", err)
+				if websocket.IsUnexpectedCloseError(
+					err,
+					websocket.CloseGoingAway,
+					websocket.CloseNormalClosure,
+				) {
+					log.Println("WebSocket read error:", err)
 				}
+
 				return
 			}
 
-			err = rdb.Publish(ctx, channel, string(msg)).Err()
+			if !channelNamePattern.MatchString(request.Channel) {
+				log.Println("Invalid channel:", request.Channel)
+				continue
+			}
 
-			if err != nil {
-				log.Println("Publish error:", err)
-				return
+			switch request.Event {
+
+			case "subscribe":
+				err := pubsub.Subscribe(ctx, request.Channel)
+				if err != nil {
+					log.Println("Redis subscribe error:", err)
+					continue
+				}
+
+				log.Println("Subscribed:", request.Channel)
+
+			case "unsubscribe":
+				err := pubsub.Unsubscribe(ctx, request.Channel)
+				if err != nil {
+					log.Println("Redis unsubscribe error:", err)
+					continue
+				}
+
+				log.Println("Unsubscribed:", request.Channel)
+
+			default:
+				log.Println("Unknown websocket event:", request.Event)
 			}
 		}
 	}()
 
+	// Receive messages FROM Redis
+	// and send them TO frontend.
 	for {
 		select {
 		case <-done:
 			return
-		case msg, ok := <-ch:
+
+		case msg, ok := <-redisChannel:
 			if !ok {
 				return
 			}
 
-			err := conn.WriteMessage(websocket.TextMessage, []byte(msg.Payload))
+			log.Println(
+				"Redis message:",
+				msg.Channel,
+				msg.Payload,
+			)
+
+			err := conn.WriteMessage(
+				websocket.TextMessage,
+				[]byte(msg.Payload),
+			)
 
 			if err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-					log.Println("Write error:", err)
+				if websocket.IsUnexpectedCloseError(
+					err,
+					websocket.CloseGoingAway,
+					websocket.CloseNormalClosure,
+				) {
+					log.Println("WebSocket write error:", err)
 				}
+
 				return
 			}
 		}

@@ -241,7 +241,51 @@ func (h *NotificationHandler) Notify(c *gin.Context) {
 		UniqueCode: req.Code,
 	}
 
-	h.chatService.CreateNewMessage(c.Request.Context(), cmd)
+	err = h.chatService.CreateNewMessage(c.Request.Context(), cmd)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Failed to create message",
+			"data": gin.H{
+				"error":   err.Error(),
+				"chat_id": chat.ID,
+				"message": req.Message,
+			},
+		})
+		return
+	}
+
+	channel := fmt.Sprintf("message.%d", chat.ChatRoomID)
+	fmt.Println("Sending message by broadcast...", channel)
+
+	err = h.broadcastService.Send(
+		c.Request.Context(),
+		channel,
+		"chat.new.message",
+		map[string]interface{}{
+			"user_id": userSender.ID,
+			"message": req.Message,
+		},
+	)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "WebSocket broadcast failed",
+			"data": gin.H{
+				"error":   err.Error(),
+				"channel": channel,
+				"chat_id": chat.ID,
+				"message": req.Message,
+			},
+		})
+		return
+	}
 
 	roomChatUrl, err := h.chatService.GetRoomChatUrl(c, chat.ID, chat.ChatRoomID)
 
@@ -294,23 +338,6 @@ func (h *NotificationHandler) Notify(c *gin.Context) {
 	}
 
 	userNik := convert.NullIfEmpty(userTarget.Employee.UniqueNumber)
-
-	channel := fmt.Sprintf("message.%d", chat.ChatRoomID)
-	fmt.Println("Sending message by broadcast...", channel)
-
-	err = h.broadcastService.Send(
-		c,
-		channel,
-		"chat.new.message",
-		map[string]interface{}{
-			"user_id": userSender.ID,
-			"message": req.Message,
-		},
-	)
-
-	if err != nil {
-		fmt.Println("WebSocket broadcast error:", err)
-	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",

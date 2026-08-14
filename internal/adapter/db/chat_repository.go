@@ -137,7 +137,7 @@ func (r *ChatRepository) GetChat(ctx context.Context, senderID string, targetID 
 
 	usersID := make([]uint, 0, 2)
 
-	for _, id := range []string{targetID, senderID} {
+	for _, id := range []string{senderID, targetID} {
 		parsedID := convert.StringToInt(id)
 
 		usersID = append(usersID, uint(parsedID))
@@ -162,7 +162,7 @@ func (r *ChatRepository) GetChat(ctx context.Context, senderID string, targetID 
 		return nil, err
 	}
 
-	return &chats[0], nil // index 0 is targeted user chat
+	return &chats[0], nil // index 0 is the sender chat
 }
 
 func (r *ChatRepository) GetTotalUnread(ctx context.Context, chatID string) (*uint64, error) {
@@ -213,7 +213,7 @@ func (r *ChatRepository) CreateNewMessage(ctx context.Context, chatMessage *doma
 	// Automatically rollback if the function exits before committing
 	defer tx.Rollback()
 
-	err := tx.Create(&chatMessage).Error
+	err := tx.Create(chatMessage).Error
 
 	if err != nil {
 		return err
