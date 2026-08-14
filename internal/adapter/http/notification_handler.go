@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"go-chat/internal/adapter/dto"
 	"go-chat/internal/app"
 	"go-chat/internal/domain"
@@ -11,10 +12,11 @@ import (
 )
 
 type NotificationHandler struct {
-	service     *app.NotificationService
-	authService *app.AuthService
-	userService *app.UserService
-	chatService *app.ChatService
+	service          *app.NotificationService
+	authService      *app.AuthService
+	userService      *app.UserService
+	chatService      *app.ChatService
+	broadcastService *app.BroadcastService
 }
 
 func NewNotificationHandler(
@@ -23,8 +25,9 @@ func NewNotificationHandler(
 	authService *app.AuthService,
 	userService *app.UserService,
 	chatService *app.ChatService,
+	broadcastService *app.BroadcastService,
 ) {
-	h := &NotificationHandler{service, authService, userService, chatService}
+	h := &NotificationHandler{service, authService, userService, chatService, broadcastService}
 
 	web := rg.Group("/web")
 
@@ -291,6 +294,23 @@ func (h *NotificationHandler) Notify(c *gin.Context) {
 	}
 
 	userNik := convert.NullIfEmpty(userTarget.Employee.UniqueNumber)
+
+	channel := fmt.Sprintf("message.%d", chat.ChatRoomID)
+	fmt.Println("Sending message by broadcast...", channel)
+
+	err = h.broadcastService.Send(
+		c,
+		channel,
+		"chat.new.message",
+		map[string]interface{}{
+			"user_id": userSender.ID,
+			"message": req.Message,
+		},
+	)
+
+	if err != nil {
+		fmt.Println("WebSocket broadcast error:", err)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",

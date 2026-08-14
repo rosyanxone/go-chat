@@ -20,6 +20,7 @@ import (
 	"gorm.io/gorm"
 
 	"go-chat/internal/adapter/db"
+	broadcaster "go-chat/internal/adapter/websocket"
 	"go-chat/internal/app"
 	"go-chat/internal/app/ai"
 	"go-chat/internal/domain"
@@ -27,7 +28,7 @@ import (
 
 var (
 	ctx                = context.Background()
-	channelNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]{3,64}$`)
+	channelNamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]{3,64}$`)
 	rdb                = redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
 	})
@@ -103,6 +104,9 @@ func main() {
 	client := ai.Client()
 	defer client.Close()
 
+	// Consuming redis client
+	wsBroadcaster := broadcaster.NewBroadcaster(rdb)
+
 	// Pack all services
 	services := Services{
 		TestService:         app.NewTestService(client),
@@ -110,6 +114,7 @@ func main() {
 		AuthService:         app.NewAuthService(authRepo),
 		NotificationService: app.NewNotificationService(notificationRepo, vapidPublicKey, vapidPrivateKey, vapidSubject),
 		ChatService:         app.NewChatService(chatRepo),
+		BroadcastService:    app.NewBroadcastService(wsBroadcaster),
 	}
 
 	// Creates a blank router default by Gin
