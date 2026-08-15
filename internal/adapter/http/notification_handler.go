@@ -259,16 +259,24 @@ func (h *NotificationHandler) Notify(c *gin.Context) {
 	}
 
 	channel := fmt.Sprintf("message.%d", chat.ChatRoomID)
-	fmt.Println("Sending message by broadcast...", channel)
 
 	err = h.broadcastService.Send(
 		c.Request.Context(),
 		channel,
-		"chat.new.message",
+		"message.created",
 		map[string]interface{}{
 			"user_id": userSender.ID,
 			"message": req.Message,
 		},
+	)
+
+	channelRoom := fmt.Sprintf("room.%d", userTarget.ID)
+
+	err = h.broadcastService.Send(
+		c.Request.Context(),
+		channelRoom,
+		"message.created",
+		nil,
 	)
 
 	if err != nil {

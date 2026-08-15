@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -182,8 +183,9 @@ func main() {
 }
 
 type WebSocketRequest struct {
-	Event   string `json:"event"`
-	Channel string `json:"channel"`
+	Event   string          `json:"event"`
+	Channel string          `json:"channel"`
+	Data    json.RawMessage `json:"data,omitempty"`
 }
 
 func handleWebSocket(c *gin.Context) {
@@ -227,6 +229,11 @@ func handleWebSocket(c *gin.Context) {
 				continue
 			}
 
+			if request.Event == "" {
+				log.Println("Missing websocket event")
+				continue
+			}
+
 			switch request.Event {
 
 			case "subscribe":
@@ -248,7 +255,25 @@ func handleWebSocket(c *gin.Context) {
 				log.Println("Unsubscribed:", request.Channel)
 
 			default:
-				log.Println("Unknown websocket event:", request.Event)
+				payload := broadcaster.Event{
+					Event:   request.Event,
+					Channel: request.Channel,
+					Data:    request.Data,
+				}
+
+				jsonData, err := json.Marshal(payload)
+				if err != nil {
+					log.Println("WebSocket payload marshal error:", err)
+					continue
+				}
+
+				err = rdb.Publish(ctx, request.Channel, jsonData).Err()
+				if err != nil {
+					log.Println("Redis publish error:", err)
+					continue
+				}
+
+				log.Println("Published:", request.Event, request.Channel)
 			}
 		}
 	}()
