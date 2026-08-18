@@ -174,7 +174,8 @@ func main() {
 	// Pass the group AND the routes package service
 	RegisterRoute(api, services)
 
-	log.Printf("API running on http://localhost:%s\n", appPort)
+	appUrl := os.Getenv("APP_URL")
+	log.Printf("API running on %s\n", appUrl)
 	err = router.Run(":" + appPort)
 
 	if err != nil {

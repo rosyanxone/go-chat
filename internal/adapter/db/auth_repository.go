@@ -45,13 +45,15 @@ func (r *AuthRepository) GetUserByToken(ctx context.Context, tokenID string, tok
 	var token domain.PersonalAccessToken
 
 	// Verify the token exists and the hash matches
-	query := r.db.WithContext(ctx).Where("token = ?", tokenHash)
+	query := r.db.WithContext(ctx).
+		Select("tokenable_id").
+		Where("token = ?", tokenHash)
 
 	if tokenID != "" {
 		query = query.Where("id = ?", tokenID)
 	}
 
-	err := query.First(&token).Error
+	err := query.Take(&token).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -64,12 +66,17 @@ func (r *AuthRepository) GetUserByToken(ctx context.Context, tokenID string, tok
 	// Fetch the user associated with this token's UserID
 	var user domain.User
 
-	userResult := r.db.WithContext(ctx).
+	err = r.db.WithContext(ctx).
 		Preload("Roles").
-		First(&user, token.TokenableID)
+		First(&user, token.TokenableID).
+		Error
 
-	if userResult.Error != nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errors.New("user not found")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("user lookup failed: %w", err)
 	}
 
 	return &user, nil

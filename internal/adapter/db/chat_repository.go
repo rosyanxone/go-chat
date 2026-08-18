@@ -223,23 +223,17 @@ func (r *ChatRepository) CreateNewMessage(ctx context.Context, chatMessage *doma
 }
 
 func (r *ChatRepository) UpdateMessagesAsRead(ctx context.Context, chatRoomID string, userID string) error {
-	tx := r.db.WithContext(ctx).Begin()
-
-	if tx.Error != nil {
-		return tx.Error
-	}
-
-	// Automatically rollback if the function exits before committing
-	defer tx.Rollback()
-
 	now := time.Now()
 
-	chatsId := tx.Table("chats").
+	chatsId := r.db.Table("chats").
 		Select("id").
 		Where("chat_room_id = ?", chatRoomID).
 		Where("user_id != ?", userID)
 
-	err := tx.Model(&domain.ChatMessage{}).
+	err := r.db.WithContext(ctx).Session(&gorm.Session{
+		SkipDefaultTransaction: true,
+	}).
+		Model(&domain.ChatMessage{}).
 		Where("chat_id IN (?)", chatsId).
 		Where("read_at IS NULL").
 		Updates(domain.ChatMessage{
@@ -248,9 +242,5 @@ func (r *ChatRepository) UpdateMessagesAsRead(ctx context.Context, chatRoomID st
 		}).
 		Error
 
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit().Error
+	return err
 }
