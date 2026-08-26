@@ -8,3 +8,9 @@ type UserDataResponse struct {
 	PhoneNumber string  `json:"phone_number"`
 	Role        string  `json:"role"`
 }
+
+type UserContactRow struct {
+	ID          uint   `json:"id"`
+	Name        string `json:"name"`
+	PhoneNumber string `json:"phone_number"`
+}

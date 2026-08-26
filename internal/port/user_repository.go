@@ -2,11 +2,13 @@ package port
 
 import (
 	"context"
+	"go-chat/internal/adapter/dto"
 	"go-chat/internal/domain"
 )
 
 type UserRepository interface {
 	GetAll(ctx context.Context) ([]domain.User, error)
+	GetContact(ctx context.Context, search string, offset int) ([]dto.UserContactRow, error)
 	FindByEmail(ctx context.Context, email string) (*domain.User, error)
 	FindByPhoneNumber(ctx context.Context, phoneNumber string) (*domain.User, error)
 	GetRoleIDByName(ctx context.Context, roleName string) (uint, error)

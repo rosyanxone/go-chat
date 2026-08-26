@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"go-chat/internal/adapter/dto"
 	"go-chat/internal/domain"
 	port "go-chat/internal/port"
 
@@ -19,6 +20,13 @@ func NewUserService(r port.UserRepository) *UserService {
 
 func (s *UserService) GetUsers(ctx context.Context) ([]domain.User, error) {
 	return s.repo.GetAll(ctx)
+}
+
+func (s *UserService) GetContact(ctx context.Context, search string, page int) ([]dto.UserContactRow, error) {
+	limit := 25
+	offset := (page - 1) * limit
+
+	return s.repo.GetContact(ctx, search, offset)
 }
 
 func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {

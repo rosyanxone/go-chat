@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"go-chat/internal/adapter/dto"
 	"go-chat/internal/domain"
 	port "go-chat/internal/port"
 
@@ -27,6 +28,33 @@ func (r *UserRepository) GetAll(ctx context.Context) ([]domain.User, error) {
 	}
 
 	return users, nil
+}
+
+func (r *UserRepository) GetContact(ctx context.Context, search string, offset int) ([]dto.UserContactRow, error) {
+	var userContact []dto.UserContactRow
+
+	query := r.db.WithContext(ctx).
+		Table("users").
+		Select("id", "name", "phone_number")
+
+	if search != "" {
+		query = query.Where("name LIKE ?", "%"+search+"%")
+	}
+
+	err := query.Limit(25).
+		Offset(offset).
+		Find(&userContact).
+		Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("user not found")
+		}
+
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+
+	return userContact, nil
 }
 
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*domain.User, error) {

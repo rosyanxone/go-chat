@@ -30,7 +30,9 @@ var (
 	ctx                = context.Background()
 	channelNamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]{3,64}$`)
 	rdb                = redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
+		Addr:     os.Getenv("REDIS_ADDR"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       0,
 	})
 	upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {

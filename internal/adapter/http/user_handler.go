@@ -21,6 +21,7 @@ func NewUserHandler(rg *gin.RouterGroup, service *app.UserService, authService *
 	h := &UserHandler{service: service}
 
 	rg.GET("/users", h.getUsers)
+	rg.GET("/users/contact", h.getContact)
 	rg.GET("/user/email", h.getUserByEmail)
 
 	protected := rg.Group("/")
@@ -57,6 +58,43 @@ func (h *UserHandler) getUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Users fetched successfully",
+		"data":    users,
+	})
+}
+
+func (h *UserHandler) getContact(c *gin.Context) {
+	search := c.Query("search")
+	page := c.Query("page")
+
+	pageInt := convert.StringToInt(page)
+
+	users, err := h.service.GetContact(c.Request.Context(), search, pageInt)
+
+	if err != nil {
+		c.Error(err)
+
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusNotFound, gin.H{
+				"status":  "failed",
+				"message": "Tidak ada user yang ditampilkan",
+				"data":    nil,
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "error",
+			"message": "Terjadi kesalahan",
+			"data": gin.H{
+				"error": err.Error(),
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Contact users fetched successfully",
 		"data":    users,
 	})
 }
