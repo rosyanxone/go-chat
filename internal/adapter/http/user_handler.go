@@ -318,7 +318,13 @@ func (h *UserHandler) updateUserData(c *gin.Context) {
 		return
 	}
 
-	err = h.service.UpdateUserData(c, req.NIK, req.Email, req.PhoneNumber)
+	phoneNumber := *req.PhoneNumber
+
+	if phoneNumber != "" {
+		phoneNumber = convert.NormalizePhoneNumber(phoneNumber)
+	}
+
+	err = h.service.UpdateUserData(c, req.NIK, req.Email, &phoneNumber)
 
 	if err != nil {
 		c.Error(err)
@@ -327,7 +333,9 @@ func (h *UserHandler) updateUserData(c *gin.Context) {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{
 				"status":  "failed",
 				"message": "Tidak ada data yang diperbarui",
-				"data":    nil,
+				"data": gin.H{
+					"error": err.Error(),
+				},
 			})
 			return
 		}
@@ -336,7 +344,9 @@ func (h *UserHandler) updateUserData(c *gin.Context) {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{
 				"status":  "failed",
 				"message": "NIK user tidak ditemukan",
-				"data":    nil,
+				"data": gin.H{
+					"error": err.Error(),
+				},
 			})
 			return
 		}
@@ -344,7 +354,9 @@ func (h *UserHandler) updateUserData(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  "failed",
 			"message": "Gagal memperbarui data user",
-			"data":    nil,
+			"data": gin.H{
+				"error": err.Error(),
+			},
 		})
 		return
 	}

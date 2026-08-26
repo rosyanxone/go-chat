@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go-chat/internal/app"
 	"go-chat/internal/domain"
+	"go-chat/internal/shared/convert"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -348,7 +349,9 @@ func (h *AuthHandler) RegisterEmployee(c *gin.Context) {
 		return
 	}
 
-	user, _ := h.userService.GetUserByPhoneNumber(c.Request.Context(), req.PhoneNumber)
+	phoneNumber := convert.NormalizePhoneNumber(req.PhoneNumber)
+
+	user, _ := h.userService.GetUserByPhoneNumber(c.Request.Context(), phoneNumber)
 
 	if user != nil {
 		c.JSON(http.StatusUnprocessableEntity, gin.H{
@@ -373,13 +376,12 @@ func (h *AuthHandler) RegisterEmployee(c *gin.Context) {
 	}
 
 	nik := req.NIK
-	phoneNumber := req.PhoneNumber
 
 	password := fmt.Sprintf("%s%s", nik[len(nik)-3:], phoneNumber[len(phoneNumber)-3:])
 
 	newUser := domain.User{
 		// Email:       req.Email,
-		PhoneNumber: req.PhoneNumber,
+		PhoneNumber: phoneNumber,
 		Name:        req.Name,
 		Password:    password,
 	}
