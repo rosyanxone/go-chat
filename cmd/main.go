@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -16,8 +15,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
 
 	"go-chat/internal/adapter/db"
 	broadcaster "go-chat/internal/adapter/websocket"
@@ -55,46 +52,22 @@ func main() {
 	}
 
 	// store env vars
-	dbUser := os.Getenv("DB_USER")
-	dbPass := os.Getenv("DB_PASS")
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbName := os.Getenv("DB_NAME")
 	appPort := os.Getenv("APP_PORT")
 	vapidPublicKey := os.Getenv("VAPID_PUBLIC_KEY")
 	vapidPrivateKey := os.Getenv("VAPID_PRIVATE_KEY")
 	vapidSubject := os.Getenv("VAPID_SUBJECT")
 
-	// build DSN
-	dsn := fmt.Sprintf(
-		"%s:%s@tcp(%s:%s)/%s?parseTime=True&loc=Local",
-		dbUser,
-		dbPass,
-		dbHost,
-		dbPort,
-		dbName,
-	)
-	conn, err := gorm.Open(mysql.Open(dsn))
+	conn, err := initDb()
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	err = conn.SetupJoinTable(&domain.User{}, "Roles", &domain.ModelHasRole{})
+
 	if err != nil {
 		log.Fatal("Failed to setup join table")
 	}
-
-	// Configure the underlying connection pool
-	sqlDB, err := conn.DB()
-	if err != nil {
-		log.Fatalf("failed to get underlying database: %s", err)
-		return
-	}
-
-	sqlDB.SetMaxIdleConns(10)  // Max idle connections
-	sqlDB.SetMaxOpenConns(100) // Max open connections
-	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	// Initialize Repositories
 	userRepo := db.NewUserRepository(conn)
