@@ -25,6 +25,7 @@ func initDb() (*gorm.DB, error) {
 	}
 
 	// Membaca variabel lingkungan dari file .env
+	appEnv := os.Getenv("APP_ENV")
 	sshHost := os.Getenv("SSH_HOST")
 	sshPort := os.Getenv("SSH_PORT")
 	sshUser := os.Getenv("SSH_USER")
@@ -47,35 +48,42 @@ func initDb() (*gorm.DB, error) {
 	}
 
 	// Fungsi Dial untuk membuka koneksi SSH setiap kali dibutuhkan
-	sqlmysql.RegisterDialContext("mysql+tcp", func(ctx context.Context, addr string) (net.Conn, error) {
-		// Membuat koneksi SSH setiap kali fungsi ini dipanggil
-		sshConn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", sshHost, sshPort), sshConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to dial SSH: %v", err)
-		}
+	protocol := "tcp"
 
-		// Membuat koneksi MySQL melalui SSH tunnel
-		mysqlConn, err := sshConn.Dial("tcp", fmt.Sprintf("%s:%s", dbHost, dbPort))
-		if err != nil {
-			sshConn.Close() // Tutup koneksi SSH jika gagal ke MySQL
-			return nil, fmt.Errorf("failed to connect to MySQL over SSH: %v", err)
-		}
+	if appEnv != "local" {
+		protocol = "mysql+tcp"
 
-		// Pastikan koneksi SSH tertutup setelah koneksi MySQL ditutup
-		go func() {
-			<-ctx.Done() // Tunggu hingga koneksi selesai
-			mysqlConn.Close()
-			sshConn.Close()
-		}()
+		sqlmysql.RegisterDialContext("mysql+tcp", func(ctx context.Context, addr string) (net.Conn, error) {
+			// Membuat koneksi SSH setiap kali fungsi ini dipanggil
+			sshConn, err := ssh.Dial("tcp", fmt.Sprintf("%s:%s", sshHost, sshPort), sshConfig)
+			if err != nil {
+				return nil, fmt.Errorf("failed to dial SSH: %v", err)
+			}
 
-		return mysqlConn, nil
-	})
+			// Membuat koneksi MySQL melalui SSH tunnel
+			mysqlConn, err := sshConn.Dial("tcp", fmt.Sprintf("%s:%s", dbHost, dbPort))
+			if err != nil {
+				sshConn.Close() // Tutup koneksi SSH jika gagal ke MySQL
+				return nil, fmt.Errorf("failed to connect to MySQL over SSH: %v", err)
+			}
+
+			// Pastikan koneksi SSH tertutup setelah koneksi MySQL ditutup
+			go func() {
+				<-ctx.Done() // Tunggu hingga koneksi selesai
+				mysqlConn.Close()
+				sshConn.Close()
+			}()
+
+			return mysqlConn, nil
+		})
+	}
 
 	// Menggunakan dsn untuk menghubungkan MySQL melalui SSH
 	dsn := fmt.Sprintf(
-		"%s:%s@mysql+tcp(127.0.0.1:%s)/%s",
+		"%s:%s@%s(127.0.0.1:%s)/%s?charset=utf8mb4&parseTime=true&loc=Local",
 		dbUser,
 		dbPassword,
+		protocol,
 		dbPort,
 		dbName,
 	)
@@ -110,6 +118,6 @@ func initDb() (*gorm.DB, error) {
 		return nil, fmt.Errorf("gagal terhubung ke MySQL: %v", err)
 	}
 
-	fmt.Println("Koneksi ke MySQL melalui SSH berhasil!")
+	// fmt.Println("Koneksi ke MySQL melalui SSH berhasil!")
 	return db, nil
 }
