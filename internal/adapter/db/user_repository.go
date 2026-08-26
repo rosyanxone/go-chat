@@ -123,10 +123,14 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *domain.User, empl
 	defer tx.Rollback()
 
 	newUser := domain.User{
+		// Email:       user.Email,
 		Name:        user.Name,
-		Email:       user.Email,
 		PhoneNumber: user.PhoneNumber,
 		Password:    user.Password,
+	}
+
+	if user.Email != "" {
+		newUser.Email = user.Email
 	}
 
 	if employee.UniqueNumber != "" {

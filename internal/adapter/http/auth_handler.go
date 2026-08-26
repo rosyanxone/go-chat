@@ -328,7 +328,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) RegisterEmployee(c *gin.Context) {
 	var req struct {
 		Name        string `json:"name" binding:"required"`
-		Email       string `json:"email" binding:"required,email"`
+		Email       string `json:"email"`
 		PhoneNumber string `json:"phone_number" binding:"required"`
 		NIK         string `json:"nik" binding:"required"`
 	}
@@ -359,15 +359,17 @@ func (h *AuthHandler) RegisterEmployee(c *gin.Context) {
 		return
 	}
 
-	user, _ = h.userService.GetUserByEmail(c.Request.Context(), req.Email)
+	if req.Email != "" {
+		user, _ = h.userService.GetUserByEmail(c.Request.Context(), req.Email)
 
-	if user != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{
-			"status":  "failed",
-			"message": "Email telah didaftarkan!",
-			"data":    nil,
-		})
-		return
+		if user != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"status":  "failed",
+				"message": "Email telah didaftarkan!",
+				"data":    nil,
+			})
+			return
+		}
 	}
 
 	nik := req.NIK
@@ -376,10 +378,14 @@ func (h *AuthHandler) RegisterEmployee(c *gin.Context) {
 	password := fmt.Sprintf("%s%s", nik[len(nik)-3:], phoneNumber[len(phoneNumber)-3:])
 
 	newUser := domain.User{
+		// Email:       req.Email,
 		PhoneNumber: req.PhoneNumber,
 		Name:        req.Name,
-		Email:       req.Email,
 		Password:    password,
+	}
+
+	if req.Email != "" {
+		newUser.Email = req.Email
 	}
 
 	var newEmployee domain.Employee
