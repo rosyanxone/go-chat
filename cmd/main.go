@@ -108,6 +108,7 @@ func main() {
 
 			"https://chat.laut-timur.com",
 			"https://notif.laut-timur.com",
+			"https://notif-test.laut-timur.com",
 		},
 		AllowMethods: []string{
 			http.MethodGet,
