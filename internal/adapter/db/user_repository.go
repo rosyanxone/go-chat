@@ -39,8 +39,7 @@ func (r *UserRepository) GetContact(ctx context.Context, userID string, search s
 		Where("id != ?", userID)
 
 	if search != "" {
-		query = query.Where("name LIKE ?", "%"+search+"%").
-			Or("phone_number LIKE ?", "%"+search+"%")
+		query = query.Where("name LIKE ? OR phone_number LIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 
 	err := query.Limit(25).
