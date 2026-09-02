@@ -21,12 +21,13 @@ func NewUserHandler(rg *gin.RouterGroup, service *app.UserService, authService *
 	h := &UserHandler{service: service}
 
 	rg.GET("/users", h.getUsers)
-	rg.GET("/users/contact", h.getContact)
 	rg.GET("/user/email", h.getUserByEmail)
 
 	protected := rg.Group("/")
 	protected.Use(AuthMiddleware(authService))
 	{
+		protected.GET("/users/contact", h.getContact)
+
 		user := protected.Group("/user")
 
 		user.POST("/update/name", h.updateUserName)
@@ -66,9 +67,25 @@ func (h *UserHandler) getContact(c *gin.Context) {
 	search := c.Query("search")
 	page := c.Query("page")
 
+	user, exists := c.Get("currentUser")
+
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Gagal mengambil data user",
+			"data": gin.H{
+				"user":   user,
+				"exists": exists,
+			},
+		})
+		return
+	}
+
+	userData := user.(*domain.User)
+
 	pageInt := convert.StringToInt(page)
 
-	users, err := h.service.GetContact(c.Request.Context(), search, pageInt)
+	users, err := h.service.GetContact(c.Request.Context(), convert.UintToString(userData.ID), search, pageInt)
 
 	if err != nil {
 		c.Error(err)

@@ -52,7 +52,7 @@ func (h *AuthHandler) ValidatePhoneNumber(c *gin.Context) {
 			"status":  "failed",
 			"message": "Nomor hp harus diisi!",
 			"data": gin.H{
-				"error": err.Error(),
+				"or": err.Error(),
 			},
 		})
 		return

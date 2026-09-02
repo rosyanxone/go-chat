@@ -30,15 +30,17 @@ func (r *UserRepository) GetAll(ctx context.Context) ([]domain.User, error) {
 	return users, nil
 }
 
-func (r *UserRepository) GetContact(ctx context.Context, search string, offset int) ([]dto.UserContactRow, error) {
+func (r *UserRepository) GetContact(ctx context.Context, userID string, search string, offset int) ([]dto.UserContactRow, error) {
 	var userContact []dto.UserContactRow
 
 	query := r.db.WithContext(ctx).
 		Table("users").
-		Select("id", "name", "phone_number")
+		Select("id", "name", "phone_number").
+		Where("id != ?", userID)
 
 	if search != "" {
-		query = query.Where("name LIKE ?", "%"+search+"%")
+		query = query.Where("name LIKE ?", "%"+search+"%").
+			Or("phone_number LIKE ?", "%"+search+"%")
 	}
 
 	err := query.Limit(25).

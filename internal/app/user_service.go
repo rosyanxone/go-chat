@@ -22,11 +22,11 @@ func (s *UserService) GetUsers(ctx context.Context) ([]domain.User, error) {
 	return s.repo.GetAll(ctx)
 }
 
-func (s *UserService) GetContact(ctx context.Context, search string, page int) ([]dto.UserContactRow, error) {
+func (s *UserService) GetContact(ctx context.Context, userID string, search string, page int) ([]dto.UserContactRow, error) {
 	limit := 25
 	offset := (page - 1) * limit
 
-	return s.repo.GetContact(ctx, search, offset)
+	return s.repo.GetContact(ctx, userID, search, offset)
 }
 
 func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"fmt"
 	"go-chat/internal/adapter/dto"
 	"go-chat/internal/app"
 	"go-chat/internal/domain"
@@ -27,6 +28,7 @@ func NewChatHandler(rg *gin.RouterGroup, service *app.ChatService, authService *
 		chat.GET("/rooms", h.GetRooms)
 		chat.POST("/messages", h.GetMessages)
 		chat.POST("/send", h.SendMessage)
+		chat.POST("/new", h.GetNewChat)
 	}
 }
 
@@ -143,6 +145,79 @@ func (h *ChatHandler) GetMessages(c *gin.Context) {
 			"title":        userTarget.Name,
 			"phone_number": userTarget.PhoneNumber,
 			"messages":     messages,
+		},
+	})
+}
+
+func (h *ChatHandler) GetNewChat(c *gin.Context) {
+	userData, exists := c.Get("currentUser")
+
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Gagal mengambil data user",
+			"data":    nil,
+		})
+		return
+	}
+
+	user := userData.(*domain.User)
+
+	var req struct {
+		TargetID int `json:"target_id" binding:"required"`
+	}
+
+	err := c.ShouldBind(&req)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "Request payload harus terpenuhi!",
+			"data": gin.H{
+				"error": err.Error(),
+			},
+		})
+		return
+	}
+
+	targetID := uint(req.TargetID)
+
+	if user.ID == targetID {
+		c.Error(fmt.Errorf(
+			"Users id given are idenctical %s:%s",
+			convert.UintToString(user.ID),
+			convert.IntToString(req.TargetID),
+		))
+
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"status":  "failed",
+			"message": "Id users yang diberikan identikal",
+			"data":    nil,
+		})
+		return
+	}
+
+	chat, err := h.service.GetChat(c, user.ID, targetID)
+
+	if err != nil {
+		c.Error(err)
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "Gagal mendapatkan room chat",
+			"data":    nil,
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  "success",
+		"message": "Pesan berhasil dikirim",
+		"data": gin.H{
+			"chat_id":      chat.ID,
+			"chat_room_id": chat.ChatRoomID,
 		},
 	})
 }
